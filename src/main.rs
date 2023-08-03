@@ -43,6 +43,10 @@ fn main() {
 }
 
 
+//TO DO: add a flag to keep the temp files
+//TO DO: improve print statements
+
+/// bed2gtf runner; automates whole process
 fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
     let bed: &String = matches.get_one("bed").unwrap();
     let isoforms: &String = matches.get_one("isoforms").unwrap();
