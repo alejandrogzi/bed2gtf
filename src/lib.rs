@@ -15,7 +15,12 @@ use sh::Shell;
 
 
 
-// Sends a bed file to bedToGenePred + genePredToGtf, returns gtf path
+/// bed2gtf currently uses a combined approach between a Rust implementation
+/// and UCSC binaries. -> this is a temporary solution until a better Rust
+/// implementation is developed
+/// run_binary automates the download of binaries through the dp module and 
+/// runs them using the sh module.
+/// cmd -> bedToGenePred {args} stdout | genePredToGtf stdin {output}
 pub fn run_binary(bed: PathBuf) -> PathBuf {
     let gtf = bed.parent().unwrap().join("temp.gtf");
     let binaries = Dependencies::get();
@@ -32,7 +37,8 @@ pub fn run_binary(bed: PathBuf) -> PathBuf {
 
 
 
-// Makes a HashMap with isoforms as keys and genes as values.
+/// get_isoforms stores transcript:gene pairs in a HashMap
+/// to be used by the mapper function.
 pub fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, io::Error> {
     let file: File = File::open(path).unwrap();
     let reader: BufReader<File> = BufReader::new(file);
@@ -45,8 +51,8 @@ pub fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, io::Error>
         .collect();
 
         let gene: &str = content[0];
-        let isoform: &str = content[1];
-        isoforms.insert(isoform.to_string(), gene.to_string());
+        let transcript: &str = content[1];
+        isoforms.insert(transcript.to_string(), gene.to_string());
     }
 
     return Ok(isoforms);
@@ -54,7 +60,10 @@ pub fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, io::Error>
 
 
 
-// Function to fix GTF file using provided isoforms mapping
+/// fix_gtf replaces the gene_id in the GTF file with the gene_id 
+/// in the isoforms mapping. 
+/// this also could handle the mapping of gene_biotype features but
+/// will be experimental for some time -> need to test efficiency cost.
 pub fn fix_gtf(gtf: PathBuf, isoforms: PathBuf) -> Result<PathBuf, io::Error> {
     let output_file_path = gtf.with_extension("fixed");
     let isoforms_mapping: HashMap<String, String> = get_isoforms(isoforms)?;
@@ -119,7 +128,8 @@ pub fn fix_gtf(gtf: PathBuf, isoforms: PathBuf) -> Result<PathBuf, io::Error> {
 
 
 
-// Inserts a 'gene' feature in GTF file
+/// inserts a 'gene' feature in GTF file by grabbing the 
+/// first transcript-featured appearance of a gene_id.
 pub fn insert_gene(gtf: PathBuf) -> Result<PathBuf, io::Error> {
     let output_file_path: PathBuf = gtf.parent().unwrap().join("output.gtf");
     let mut new_gtf_file: File = File::create(&output_file_path)?;
@@ -187,12 +197,12 @@ pub fn clean_up(path: PathBuf) -> Result<(), io::Error> {
 }
 
 
-pub fn bed2gtf(bed: PathBuf, isoforms: PathBuf) -> String {
+pub fn bed2gtf(bed: PathBuf, isoforms: PathBuf) -> PathBuf {
     let input: PathBuf = run_binary(bed);
     let gtf: PathBuf = {
         let gtf: PathBuf = fix_gtf(input.clone().into(), isoforms).unwrap();
         insert_gene(gtf).unwrap()
     };
     clean_up(input).unwrap();
-    gtf.to_string_lossy().to_string()
+    gtf
 }
