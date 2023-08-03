@@ -77,7 +77,7 @@ to install bed2gtf on your system follow this steps:
 
 ## Library
 to include bed2gtf as a library and use it within your project follow these steps:
-1. include `bed2gtf = 1.0.0` under `[dependencies]` in the `Cargo.toml` file
+1. include `bed2gtf = 1.1.0` under `[dependencies]` in the `Cargo.toml` file
 2. the library name is `bed2gtf`, to use it just write:
 
     ``` rust
