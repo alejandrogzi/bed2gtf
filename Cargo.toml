@@ -1,0 +1,29 @@
+[package]
+name = "bed2gtf"
+version = "1.0.0"
+authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
+edition = "2021"
+license = "MIT"
+description = "A fast and memory efficient BED to GTF converter"
+homepage = "https://github.com/alejandrogzi/bed2gtf"
+repository = "https://github.com/alejandrogzi/bed2gtf"
+readme = "README.md"
+keywords = ["bed", "gtf", "cli", "bed2gtf"]
+categories = ["command-line-utilitites", "science"]
+
+[dependencies]
+clap = {version = "4.0"}
+regex = {version = "1.5.4"}
+colored = {version = "1.0.0"}
+indoc = {version = "1.0"}
+
+[profile.release]
+lto = true
+
+[lib]
+name = "bed2gtf"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bed2gtf"
+path = "src/main.rs"
