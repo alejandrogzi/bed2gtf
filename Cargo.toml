@@ -9,7 +9,7 @@ homepage = "https://github.com/alejandrogzi/bed2gtf"
 repository = "https://github.com/alejandrogzi/bed2gtf"
 readme = "README.md"
 keywords = ["bed", "gtf", "cli", "bed2gtf"]
-categories = ["command-line-utilitites", "science"]
+categories = ["command-line-utilities", "science"]
 
 [dependencies]
 clap = {version = "4.0"}
