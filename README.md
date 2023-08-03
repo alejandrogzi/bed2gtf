@@ -33,8 +33,7 @@ Options:
 ```
 
 
-#### Documentation:
-#### Crate: 
+#### crate: [https://crates.io/crates/bed2gtf](https://crates.io/crates/bed2gtf)
 
 <details>
 <summary>click for detailed formats</summary>
