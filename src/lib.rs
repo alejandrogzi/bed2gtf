@@ -1,45 +1,20 @@
-use regex::Regex;
-
-use std::string::String;
+use std::collections::{HashMap, HashSet};
+use std::io::{BufRead, BufReader, Write, Error};
 use std::path::PathBuf;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
-use std::collections::{HashMap, HashSet};
-use std::io::Write;
+use std::cmp::{max, min};
 
-mod dp;
-use dp::Dependencies;
+mod bed;
+use bed::BedRecord;
 
-mod sh;
-use sh::Shell;
+mod codon;
+use codon::Codon;
 
 
-
-/// bed2gtf currently uses a combined approach between a Rust implementation
-/// and UCSC binaries. -> this is a temporary solution until a better Rust
-/// implementation is developed
-/// run_binary automates the download of binaries through the dp module and 
-/// runs them using the sh module.
-/// cmd -> bedToGenePred {args} stdout | genePredToGtf stdin {output}
-pub fn run_binary(bed: PathBuf) -> PathBuf {
-    let gtf = bed.parent().unwrap().join("temp.gtf");
-    let binaries = Dependencies::get();
-    let bed_to_gene_pred = &binaries[0];
-    let gene_pred_to_gtf = &binaries[1];
-
-    let to_gene_pred: String = format!("{} {} stdout", bed_to_gene_pred.to_string_lossy(), bed.display());
-    let to_gtf: String = format!("{} file stdin {}", gene_pred_to_gtf.to_string_lossy(), gtf.to_string_lossy());
-    let cmd: String = format!("{} | {}", to_gene_pred, to_gtf);
-
-    let _ = Shell::run(&cmd);
-    return gtf;
-}
+const SOURCE: &str = "bed2gtf";
 
 
-
-/// get_isoforms stores transcript:gene pairs in a HashMap
-/// to be used by the mapper function.
-pub fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, io::Error> {
+fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, Error> {
     let file: File = File::open(path).unwrap();
     let reader: BufReader<File> = BufReader::new(file);
     let mut isoforms: HashMap<String, String> = HashMap::new();
@@ -51,158 +26,324 @@ pub fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, io::Error>
         .collect();
 
         let gene: &str = content[0];
-        let transcript: &str = content[1];
-        isoforms.insert(transcript.to_string(), gene.to_string());
+        let isoform: &str = content[1];
+        isoforms.insert(isoform.to_string(), gene.to_string());
     }
 
     return Ok(isoforms);
 } 
 
 
+fn find_first_codon(record: &BedRecord) -> Codon {
+    let mut codon = Codon::new();
+    let mut exon = 0;
 
-/// fix_gtf replaces the gene_id in the GTF file with the gene_id 
-/// in the isoforms mapping. 
-/// this also could handle the mapping of gene_biotype features but
-/// will be experimental for some time -> need to test efficiency cost.
-pub fn fix_gtf(gtf: PathBuf, isoforms: PathBuf) -> Result<PathBuf, io::Error> {
-    let output_file_path = gtf.with_extension("fixed");
-    let isoforms_mapping: HashMap<String, String> = get_isoforms(isoforms)?;
-    let gtf_file = File::open(gtf)?;
-    let reader = BufReader::new(gtf_file);
-    let mut new_gtf_file = File::create(&output_file_path)?;
-    let re: Regex = Regex::new(r#"gene_id\s+"([^"]+)""#).unwrap();
-
-    for line in reader.lines() {
-        let line = line?; // Propagate any read errors
-        let mut fields: Vec<&str> = line.split('\t').collect();
-
-        // Check if there are at least 9 fields in the line
-        if fields.len() < 9 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Invalid GTF format: Less than 9 columns in the line.",
-            ));
+    for k in 0..record.get_exon_frames().len() {
+        if record.get_exon_frames()[k] >= 0 {
+            exon = k;
+            break;
+        } else {
+            return codon;
         }
+    }
 
-        let mut attributes: Vec<&str> = fields[8].split(';').collect(); // ["gene_id \"ENSG00000223972.5\"", ...]
-        let mut gene: Vec<&str> = attributes[0].split('"').collect(); // ["gene_id ", "ENSG00000223972.5", ""]
+    let cds_exon_start = max(record.exon_start()[exon], record.cds_start());
+    let cds_exon_end = min(record.exon_end()[exon], record.cds_end());
 
-        // Check if the line contains the gene_id information
-        if let Some(captures) = re.captures(&line) {
-            let transcript = captures
-                .get(1)
-                .map_or("", |m| m.as_str())
-                .split('.')
-                .next()
-                .unwrap_or("");
+    let frame = if record.strand() == "+" {
+        record.get_exon_frames()[exon]
+    } else {
+        (record.get_exon_frames()[exon] + (cds_exon_end - cds_exon_start)) % 3
+    };
 
-            // Look up the gene_id for the current transcript in the isoforms mapping
-            if let Some(result) = isoforms_mapping.get(transcript) {
-                gene[1] = result;
-                let fixed_gene: String = gene.join("\"");
+    if frame != 0 {
+        return codon;
+    }
 
-                attributes[0] = fixed_gene.as_str();
-                let fixed_attributes: String = attributes.join(";");
+    codon.start = record.cds_start();
+    codon.end = record.cds_start() + (record.cds_end() - record.cds_start()).min(3);
+    codon.index = exon as i32;
 
-                fields[8] = fixed_attributes.as_str();
-                let fixed_metadata: String = fields.join("\t");
+    if codon.end - codon.start < 3 {
+        exon = exon + 1;
+        if exon == record.exon_count() as usize {
+            return codon;
+        };
+        let need = 3 - (codon.end - codon.start);
+        if (record.cds_end() - record.cds_start()) < need {
+            return codon;
+        }
+        codon.start2 = record.cds_start();
+        codon.end2 = record.cds_start() + need;
+    }
+    codon
+}
 
-                // Write the fixed line to the output file
-                writeln!(new_gtf_file, "{}", fixed_metadata)?;
 
-            } else {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("Gene not found for transcript: {}", transcript),
-                ));
+
+fn find_last_codon(record: &BedRecord) -> Codon {
+    let mut codon = Codon::new();
+    let mut exon = 0;
+
+    for k in (0..record.get_exon_frames().len()).step_by(1).rev() {
+        if record.get_exon_frames()[k] >= 0 {
+            exon = k;
+            break;
+        } else {
+            return codon;
+        }
+    }
+
+    let cds_exon_start = max(record.exon_start()[exon], record.cds_start());
+    let cds_exon_end = min(record.exon_end()[exon], record.cds_end());
+
+    let frame = if record.strand() == "-" {
+        record.get_exon_frames()[exon]
+    } else {
+        (record.get_exon_frames()[exon] + (cds_exon_end - cds_exon_start)) % 3
+    };
+
+    if frame != 0 {
+        return codon;
+    }
+
+    codon.start = max(record.cds_start(), record.cds_end() - 3);
+    codon.end = record.cds_end();
+    codon.index = exon as i32;
+
+    if codon.end - codon.start < 3 {
+        exon = exon + 1;
+        if exon == record.exon_count() as usize {
+            return codon;
+        };
+    
+        let need = 3 - (codon.end - codon.start);
+        if (record.cds_end() - record.cds_start()) < need {
+            return codon;
+        }
+        codon.start2 = record.cds_start();
+        codon.end2 = record.cds_start() + need;
+    }
+    codon
+}
+
+
+fn codon_complete(codon: &Codon) -> bool {
+    ((codon.end - codon.start) + (codon.end2 - codon.start2)) == 3
+}
+
+
+fn in_exon(record: &BedRecord, pos:i32, exon: usize) -> bool {
+    (record.exon_start()[exon] <= pos) && (pos <= record.exon_end()[exon])
+}
+
+
+fn move_pos(record: &BedRecord, pos: i32, dist: i32) -> i32 {
+    let mut pos = pos;
+    assert!(record.tx_start() <= pos && pos <= record.tx_end());
+    let mut exon: Option<i16> = None;
+    for i in 0..record.exon_count() {
+        if in_exon(record, pos, i as usize) {
+            exon = Some(i);
+            break;
+        }
+    } 
+
+    if exon.is_none() {
+        panic!("Position {} not in exons", pos);
+    }
+
+    let mut steps = dist.abs();
+    let direction = if dist >= 0 { 1 } else { -1 };
+
+    while (0..record.exon_count()).contains(&(exon.unwrap())) && steps > 0 {
+        if in_exon(record, pos + direction, exon.unwrap() as usize) {
+            pos += direction;
+            steps -= 1;
+        } else if direction >= 0 {
+            exon = Some(exon.unwrap() + 1);
+            if let Some(ex) = exon {
+                if (ex as usize) < record.exon_count() as usize {
+                    pos = record.exon_start()[ex as usize];
+                }
             }
         } else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("gene_id not found in line: {}", line),
-            ));
+            exon = Some(exon.unwrap() - 1);
+            if let Some(ex) = exon {
+                if ex >= 0 {
+                    pos = record.exon_end()[ex as usize] - 1;
+                    steps -= 1;
+                }
+            }
         }
     }
-    Ok(output_file_path)
+
+    if steps > 0 {
+        panic!("can't move {} by {}", pos, dist);
+    }
+
+    pos
+} 
+
+
+fn build_gene_line(gene_name: &str, record: &BedRecord, file: &mut File) {
+    assert!(gene_name.len() > 0);
+    let gene_line = format!("{}\t{}\tgene\t{}\t{}\t.\t{}\t.\tgene_id \"{}\";\n",
+        record.chrom(),
+        SOURCE,
+        record.tx_start() + 1,
+        record.tx_end(),
+        record.strand(),
+        gene_name,
+    );
+    file.write_all(gene_line.as_bytes()).unwrap();
+}
+
+
+fn build_gtf_line(record: &BedRecord, gene_name: &str, gene_type: &str, exon_start: i32, exon_end: i32, frame: i32, exon: i16, file: &mut File) {
+    assert!(record.tx_start() < record.tx_end());
+
+    let phase = if frame < 0 {
+        "."
+    } else if frame == 0 {
+        "0"
+    } else if frame == 1 {
+        "2"
+    } else {
+        "1"
+    };
+
+    let mut gtf_line = format!("{}\t{}\t{}\t{}\t{}\t.\t{}\t{}\t",
+        record.chrom(),
+        SOURCE,
+        gene_type,
+        exon_start + 1,
+        exon_end,
+        record.strand(),
+        phase,
+    );
+
+    gtf_line += &format!("gene_id \"{}\"; ", gene_name);
+    gtf_line += &format!("transcript_id \"{}\"; ", record.name());
+    if exon >= 0 {
+        if record.strand() == "-" {
+            gtf_line += &format!("exon_number \"{}\"; ", record.exon_count() - exon);
+            gtf_line += &format!("exon_id \"{}.{}\";", record.name(), record.exon_count() - exon);
+        } else {
+            gtf_line += &format!("exon_number \"{}\"; ", exon + 1);
+            gtf_line += &format!("exon_id \"{}.{}\";", record.name(), exon + 1);
+        }
+    }
+    gtf_line += "\n";
+    let _ = file.write_all(gtf_line.as_bytes());
 }
 
 
 
-/// inserts a 'gene' feature in GTF file by grabbing the 
-/// first transcript-featured appearance of a gene_id.
-pub fn insert_gene(gtf: PathBuf) -> Result<PathBuf, io::Error> {
-    let output_file_path: PathBuf = gtf.parent().unwrap().join("output.gtf");
-    let mut new_gtf_file: File = File::create(&output_file_path)?;
-    let gtf_file: File = File::open(gtf)?;
-    let reader: BufReader<File> = BufReader::new(gtf_file);
-    let mut temp: HashSet<String> = HashSet::new();
+fn write_features(i: usize, record: &BedRecord, gene_name: &str, first_utr_end: i32, cds_start: i32, cds_end: i32, last_utr_start: i32, frame: i32, file: &mut File) {
+    let exon_start = record.exon_start()[i];
+    let exon_end = record.exon_end()[i];
 
+    if exon_start < first_utr_end {
+        let end = min(exon_end, first_utr_end);
+        let utr_type = if record.strand() == "+" { "5UTR" } else { "3UTR" };
+        build_gtf_line(record, gene_name, utr_type, exon_start, end, frame, -1, file);
+    }
+
+    if record.cds_start() < exon_end && exon_start < record.cds_end() {
+        let start = max(exon_start, cds_start);
+        let end = min(exon_end, cds_end);
+        build_gtf_line(record, gene_name, "CDS", start, end, frame, i as i16, file);
+    }
+
+    if exon_end > last_utr_start {
+        let start = max(exon_start, last_utr_start);
+        let utr_type = if record.strand() == "+" { "3UTR" } else { "5UTR" };
+        build_gtf_line(record, gene_name, utr_type, start, exon_end, frame, -1, file);
+    }
+}
+
+
+fn write_codon(record: &BedRecord, gene_name: &str, gene_type: &str, codon: Codon, file: &mut File) {
+    build_gtf_line(record, gene_name, gene_type, codon.start, codon.end, 0, codon.index as i16, file);
+
+    if codon.start2 < codon.end2 {
+        build_gtf_line(record, gene_name, gene_type, codon.start, codon.end, codon.start2, (codon.end - codon.start) as i16, file);
+    }
+}
+
+
+fn to_gtf(record: &BedRecord, isoforms: &HashMap<String, String>, file: &mut File, gene_line: bool) {
+    let gene_name = isoforms.get(record.name()).unwrap();
+    let first_codon = find_first_codon(record);
+    let last_codon = find_last_codon(record);
+
+    let first_utr_end = record.cds_start();
+    let last_utr_start = record.cds_end();
+
+    let cds_end: i32 = if record.strand() == "+" && codon_complete(&last_codon) {
+        move_pos(record, last_codon.end, -3)
+    } else {
+        record.cds_end()
+    };
+
+    let cds_start = if record.strand() == "-" && codon_complete(&first_codon) {
+        move_pos(record, first_codon.start, 3)
+    } else {
+        record.cds_start()
+    };
+
+    if gene_line {
+        build_gene_line(gene_name, record, file)
+    };
+
+    let _ = build_gtf_line(record, gene_name, "transcript", record.tx_start(), record.tx_end(), -1, -1, file);
+
+    for i in 0..record.exon_count() as usize {
+        build_gtf_line(record, gene_name, "exon", record.exon_start()[i], record.exon_end()[i], -1, i as i16, file);
+        if cds_start < cds_end {
+            write_features(i, record, gene_name, first_utr_end, cds_start, cds_end, last_utr_start, record.get_exon_frames()[i], file);
+        }
+    }
+
+    if record.strand() != "-" {
+        if codon_complete(&first_codon) {
+            write_codon(record, gene_name, "start_codon", first_codon, file);
+        }
+        if codon_complete(&last_codon) {
+            write_codon(record, gene_name, "stop_codon", last_codon, file);
+        }
+    } else {
+        if codon_complete(&last_codon) {
+            write_codon(record, gene_name, "start_codon", last_codon, file);
+        }
+        if codon_complete(&first_codon) {
+            write_codon(record, gene_name, "stop_codon", first_codon, file);
+        }
+    }
+}
+
+
+
+pub fn bed2gtf(input: &String, isoforms: &String, output: &String) {
+    let bedfile = File::open(PathBuf::from(input)).unwrap();
+    let reader = BufReader::new(bedfile);
+    
+    let isoforms = get_isoforms(isoforms.into()).unwrap();
+    let mut output = File::create(PathBuf::from(output)).unwrap();
+    let mut seen_genes: HashSet<String> = HashSet::new();
 
     for line in reader.lines() {
-        if let Ok(line) = line {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
+        let line = line.unwrap();
+        let fields: Vec<&str> = line.split('\t').collect();
+        let record = BedRecord::new(fields);
 
-            let fields: Vec<&str> = line.split('\t').collect();
-            let feature_type = fields[2];
-
-            if feature_type != "transcript" {
-                writeln!(new_gtf_file, "{}", line)?;
-            } else {
-                let gene_id: &str = fields[8]
-                    .split(';').find(|s| s.starts_with("gene_id"))
-                    .unwrap();
-                let gene: &str = gene_id.split('"').nth(1).unwrap();
-                
-                if !temp.contains(gene) {
-                    temp.insert(gene.to_string());
-
-                    let mut base = fields[0..9].to_owned();
-                    let new_attribute = &format!("{}; gene_biotype \"protein_coding\";",gene_id);
-                    base[2] = "gene";
-                    base[8] = new_attribute;
-
-                    let newline = base.join("\t");
-                    writeln!(new_gtf_file, "{}", newline)?;
-                }
-                writeln!(new_gtf_file, "{}", line)?;
-            }
+        let key = isoforms.get(record.name()).unwrap();
+        if !seen_genes.contains(key) {
+            seen_genes.insert(key.to_string());
+            let _ = to_gtf(&record, &isoforms, &mut output, true);
+        } else {
+            let _ = to_gtf(&record, &isoforms, &mut output, false);
         }
     }
-    Ok(output_file_path)
-}
-
-
-
-pub fn clean_up(path: PathBuf) -> Result<(), io::Error> {
-    let mut in_path = path.clone();
-    in_path.pop();
-
-    let stem = path.file_stem().unwrap().to_str().unwrap();
-
-    let files = std::fs::read_dir(in_path)?;
-    for file in files {
-        let file = file.unwrap().path();
-        if file.is_file() {
-            if file.file_stem().unwrap() != stem {
-                continue
-            } else {
-                std::fs::remove_file(file)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-
-pub fn bed2gtf(bed: PathBuf, isoforms: PathBuf) -> PathBuf {
-    let input: PathBuf = run_binary(bed);
-    let gtf: PathBuf = {
-        let gtf: PathBuf = fix_gtf(input.clone().into(), isoforms).unwrap();
-        insert_gene(gtf).unwrap()
-    };
-    clean_up(input).unwrap();
-    gtf
 }

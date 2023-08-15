@@ -1,13 +1,10 @@
-use bed2gtf::*;
+use bed2gtf::bed2gtf;
 
 use clap::{Arg, Command, ArgMatches};
 
 use colored::Colorize;
 
-use indoc::indoc;
-
 use std::string::String;
-use std::path::PathBuf;
 use std::error::Error;
 use std::time::Instant;
 
@@ -28,58 +25,33 @@ fn main() {
             .required(true)
             .value_name("ISOFORMS")
             .help("Isoforms mapping file"))
-        .arg(Arg::new("verbose")
+        .arg(Arg::new("output")
             .index(3)
-            .default_value("true")
-            .help("Prints verbose output"))
+            .required(true)
+            .value_name("OUTPUT")
+            .help("Output file name"))
         .get_matches();
 
     if let Some(err) = run(matches).err() {
         eprintln!("{} {}", 
                 "Error:".bright_red().bold(),
-                err.to_string().bright_red().bold());
+                err);
         std::process::exit(1);
     }
 }
 
 
-//TO DO: add a flag to keep the temp files
-//TO DO: improve print statements
-
-/// bed2gtf runner; automates whole process
 fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
     let bed: &String = matches.get_one("bed").unwrap();
     let isoforms: &String = matches.get_one("isoforms").unwrap();
+    let output: &String = matches.get_one("output").unwrap();
 
     let now = Instant::now();
-    
-    println!("{}", indoc!(
-    "\n
-    ##### BED2GTF in RUST #####
-    A fast and memory efficient BED to GTF converter.\n
-    ##### STEP 1: DOWNLOAD DEPENDENCIES #####
-    "));
 
-    let gtf: PathBuf = run_binary(bed.into());
+    let _ = bed2gtf(bed, isoforms, output);
 
-    println!("\n##### STEP 2: CONVERTING BED TO GTF #####");
-    println!("Fixing gene_ids in the GTF file...");
-    let gtf: PathBuf = fix_gtf(gtf.into(), isoforms.into())?;
-    println!("Done!\n");
-
-    println!("##### STEP 3: INSERT GENE FEATURES #####");
-    println!("Inserting gene features in the GTF file...");
-    let out: PathBuf = insert_gene(gtf.clone()).unwrap();
-    println!("Done!\n");
-
-    println!("Cleaning up...");
-    let _ = clean_up(gtf);
-
-    if matches.contains_id("verbose") {
-        println!("results at: {}", out.display());
-        let elapsed = now.elapsed();
-        println!("time taken: {:.2?}", elapsed);
-    }
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 
     Ok(())
 }
