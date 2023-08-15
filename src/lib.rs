@@ -14,6 +14,9 @@ use codon::Codon;
 const SOURCE: &str = "bed2gtf";
 
 
+
+/// Store the isoforms in a HashMap in the form: isoform -> gene.
+/// Provides a fast access to the gene name given an isoform name.
 fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, Error> {
     let file: File = File::open(path).unwrap();
     let reader: BufReader<File> = BufReader::new(file);
@@ -34,6 +37,9 @@ fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, Error> {
 } 
 
 
+
+/// Get the coordinates of the first codon (start/stop).
+/// If not in frame, return an empty codon.
 fn find_first_codon(record: &BedRecord) -> Codon {
     let mut codon = Codon::new();
     let mut exon = 0;
@@ -81,6 +87,8 @@ fn find_first_codon(record: &BedRecord) -> Codon {
 
 
 
+/// Get the coordinates of the last codon (start/stop).
+/// If not in frame, return an empty codon.
 fn find_last_codon(record: &BedRecord) -> Codon {
     let mut codon = Codon::new();
     let mut exon = 0;
@@ -128,16 +136,25 @@ fn find_last_codon(record: &BedRecord) -> Codon {
 }
 
 
+
+/// Check if all the bases of a codon are defined.
 fn codon_complete(codon: &Codon) -> bool {
     ((codon.end - codon.start) + (codon.end2 - codon.start2)) == 3
 }
 
 
+
+/// Check if a given coordinate is within exon boundaries.
 fn in_exon(record: &BedRecord, pos:i32, exon: usize) -> bool {
     (record.exon_start()[exon] <= pos) && (pos <= record.exon_end()[exon])
 }
 
 
+
+/// Move a position in an exon by a given distance, which is positive
+/// to move forward and negative to move backwards. Introns are not
+/// considered. If can't move distance and stay within exon boundaries,
+/// panic.
 fn move_pos(record: &BedRecord, pos: i32, dist: i32) -> i32 {
     let mut pos = pos;
     assert!(record.tx_start() <= pos && pos <= record.tx_end());
@@ -186,6 +203,9 @@ fn move_pos(record: &BedRecord, pos: i32, dist: i32) -> i32 {
 } 
 
 
+
+/// Build a "gene" feature line for a given group of transcripts.
+/// Each line is unique for a given group.
 fn build_gene_line(gene_name: &str, record: &BedRecord, file: &mut File) {
     assert!(gene_name.len() > 0);
     let gene_line = format!("{}\t{}\tgene\t{}\t{}\t.\t{}\t.\tgene_id \"{}\";\n",
@@ -200,6 +220,8 @@ fn build_gene_line(gene_name: &str, record: &BedRecord, file: &mut File) {
 }
 
 
+
+/// Build a GTF line for a given feature.
 fn build_gtf_line(record: &BedRecord, gene_name: &str, gene_type: &str, exon_start: i32, exon_end: i32, frame: i32, exon: i16, file: &mut File) {
     assert!(record.tx_start() < record.tx_end());
 
@@ -240,6 +262,7 @@ fn build_gtf_line(record: &BedRecord, gene_name: &str, gene_type: &str, exon_sta
 
 
 
+/// Write the features of a given exon, including UTRs and CDS.
 fn write_features(i: usize, record: &BedRecord, gene_name: &str, first_utr_end: i32, cds_start: i32, cds_end: i32, last_utr_start: i32, frame: i32, file: &mut File) {
     let exon_start = record.exon_start()[i];
     let exon_end = record.exon_end()[i];
@@ -264,6 +287,8 @@ fn write_features(i: usize, record: &BedRecord, gene_name: &str, first_utr_end: 
 }
 
 
+
+/// Write the codon features (start/stop) for a given exon.
 fn write_codon(record: &BedRecord, gene_name: &str, gene_type: &str, codon: Codon, file: &mut File) {
     build_gtf_line(record, gene_name, gene_type, codon.start, codon.end, 0, codon.index as i16, file);
 
@@ -273,6 +298,8 @@ fn write_codon(record: &BedRecord, gene_name: &str, gene_type: &str, codon: Codo
 }
 
 
+
+/// Convert a BED record to a GTF record.
 fn to_gtf(record: &BedRecord, isoforms: &HashMap<String, String>, file: &mut File, gene_line: bool) {
     let gene_name = isoforms.get(record.name()).unwrap();
     let first_codon = find_first_codon(record);
@@ -325,6 +352,11 @@ fn to_gtf(record: &BedRecord, isoforms: &HashMap<String, String>, file: &mut Fil
 
 
 
+/// Convert a BED file to a GTF file.
+/// ```
+/// use bed2gtf::bed2gtf;
+/// bed2gtf("input.bed", "isoforms.txt", "output.gtf");
+/// ```
 pub fn bed2gtf(input: &String, isoforms: &String, output: &String) {
     let bedfile = File::open(PathBuf::from(input)).unwrap();
     let reader = BufReader::new(bedfile);
