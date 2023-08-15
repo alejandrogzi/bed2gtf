@@ -20,12 +20,12 @@ in a few seconds.
 
 ## Usage
 ``` rust
-Usage: bed2gtf[EXE] --bed <BED> --isoforms <ISOFORMS> --verbose [verbose]
+Usage: bed2gtf[EXE] --bed <BED> --isoforms <ISOFORMS> --output <OUTPUT>
 
 Arguments:
     --bed <BED>: a .bed file
     --isoforms <ISOFORMS>: a tab-delimited file
-    --verbose [verbose]: print verbose [default: true]
+    --output <OUTPUT>: path to output file
 
 Options:
     --help: print help
@@ -47,12 +47,12 @@ bed2gtf just needs two files:
     ```
     chrom   chromStart  chromEnd      name    ...
       |         |           |           |
-    chr20   50222035    50222038    ENST00000595977.1735    ...
+    chr20   50222035    50222038    ENST00000595977    ...
     ```
 
     see [BED format](https://genome.ucsc.edu/FAQ/FAQformat.html#format1) for more information
 
-2. a tab-delimited .txt/.tsv/.csv/... file with genes/isoforms:
+2. a tab-delimited .txt/.tsv/.csv/... file with genes/isoforms (all the transcripts in .bed file should appear in the isoforms file):
 
     ```
     > cat isoforms.txt
@@ -60,9 +60,10 @@ bed2gtf just needs two files:
     ENSG00000198888 ENST00000361390
     ENSG00000198763 ENST00000361453
     ENSG00000198804 ENST00000361624
+    ENSG00000188868 ENST00000595977
     ```
 
-    you can build a custom file for your preferred species using [Ensembl BioMart](https://www.ensembl.org/biomart/martview).
+    you can build a custom file for your preferred species using [Ensembl BioMart](https://www.ensembl.org/biomart/martview). 
 
 </p>
 </details>
@@ -77,7 +78,7 @@ to install bed2gtf on your system follow this steps:
 
 ## Library
 to include bed2gtf as a library and use it within your project follow these steps:
-1. include `bed2gtf = 1.1.0` under `[dependencies]` in the `Cargo.toml` file
+1. include `bed2gtf = 1.2.0` under `[dependencies]` in the `Cargo.toml` file
 2. the library name is `bed2gtf`, to use it just write:
 
     ``` rust
@@ -89,7 +90,7 @@ to include bed2gtf as a library and use it within your project follow these step
     ```
 3. invoke
     ``` rust
-    let gtf = bed2gtf(bed: PathBuf, isoforms: PathBuf)
+    let gtf = bed2gtf(bed: PathBuf, isoforms: PathBuf, output: PathBuf)
     ```
 
 ## Build
@@ -97,21 +98,23 @@ to build bed2gtf from this repo, do:
 
 1. get rust (as described above)
 2. run `git clone https://github.com/alejandrogzi/bed2gtf.git && cd bed2gtf`
-3. run `cargo run --release <BED> <ISOFORMS>`(arguments are positional, so you do not need to specify --bed/--isoforms)
+3. run `cargo run --release <BED> <ISOFORMS> <OUTPUT>`(arguments are positional, so you do not need to specify --bed/--isoforms)
 
 
 ## Output
 
-bed2gtf will send the output directly to the same .bed file path
+bed2gtf will send the output directly to the same .bed file path if you specify so
 
 ```
+bed2gtf annotation.bed isoforms.txt output.gtf
+
 .
 ├── ...
 ├── isoforms.txt
 ├── annotation.bed
 └── output.gtf
 ```
-where `output.gtf` is the result. Any intermediate files are deleted, since there is no need to keep them. 
+where `output.gtf` is the result.
 
 ## FAQ
 ### Why?
@@ -119,7 +122,7 @@ UCSC offers a fast way to convert BED into GTF files through KentUtils or specif
 
 A GTF file is a 9-column tab-delimited file that holds gene annotation data for a specific assembly (5). The 9th column defines the attributes of each entry. This field is important, as some post-processing tools that handle GTF files need them to extract gene information (e.g. STAR, arriba, etc). An incomplete GTF attribute field would probably lead to annotation-related errors in these software. 
 
-Of the available tools/scripts mentioned above, none produce a fully functional attribute GTF file conversion. (1) uses a two-step approach (bedToGenePred | genePredToGtf) written in C, which is extremely fast. Since a .bed file does not preserve any gene-related information, this approach fails to a) include correct gene_id attributes (duplicated transcript_ids) b) append 3rd column gene features.
+Of the available tools/scripts mentioned above, none produce a fully functional attribute GTF file conversion. (1) uses a two-step approach (bedToGenePred | genePredToGtf) written in C, which is extremely fast. Since a .bed file does not preserve any gene-related information, this approach fails to a) include correct gene_id attributes (duplicated transcript_ids) if no refTable is included b) append 3rd column gene features.
 
 This is an example:
 
@@ -145,18 +148,24 @@ chr20 ensembl exon 50222035 50222038 . + . gene_id "ENST00000595977.1735"; trans
 chr20 ensembl exon 50188548 50188930 . + . gene_id "ENST00000595977.3403"; transcript_id "ENST00000595977.3403"; exon_number "0
 ```
 
-This is where bed2gtf comes in: a fast and memory efficient BED-to-GTF converter written in Rust. In ~15 seconds this tool produces a fully functional GTF converted file with all the needed features needed for post-processing tools. 
+This is where bed2gtf comes in: a fast and memory efficient BED-to-GTF converter written in Rust. In ~4 seconds this tool produces a fully functional GTF converted file with all the needed features needed for post-processing tools. 
 
 ### How?
-bed2gtf takes advantage of UCSC binaries. These executables show slightly lower computation times than those seen in a similar rust implementation. This tool uses bedToGenePred + genePredToGtf as a first step, automates their download and updates permissions. After that, this tool overcomes the limitations of gene_id and gene-feature fields by expecting a tab-delimited isoforms file. Each unique transcript seen in the new gtf file is mapped to their respective gene_id. With this information, bed2gtf simply constructs gene-feature lines and corrects gene_ids.
+bed2gtf is basically the reimplementation of C binaries merged in 1 step. This tool evaluates the position of k exons in j transcript, calculates start/stop/codon/UTR positions preserving reading frames and adjust the index + 1 (to be compatible with GTF convention). The isoforms file works as the refTable in C binaries to map each transcript to their respective gene; however, bed2gtf takes advantage of this and adds an additional "gene" line (to be compatible with other tools).  
 
 ### Limitations
 At the time of bed2gtf being publicly available some gaps have not been covered yet. 
 
 1. Sorting. This tool does not implement a sorting step. While it is not mandatory, and probably would not affect post-processing tools, it could increase computation time. A sorting step should consider a) chromosome, b) boundaries (start-end) and c) features (gene > transcript > exon, start_codon, CDS, stop_codon, UTR). 
-2. Time. Although bed2gtf is pretty fast compared to other implementations (e.g python3; unpublished data), I personally think that this tool could achieve even faster computation times with more detailed algorithms and structures.
-3. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf assumes all genes/transcripts provided are protein_coding. In future releases will probably be an option to specify the gene_biotype [-b/--biotype]. This feature could also be extracted from Ensembl BioMart and append it to the isoforms file; however, map them to each line will probably cost efficiency without a better framework.
+2. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf DOES NOT assume any biotype. In future releases will probably be an option to specify the gene_biotype [-b/--biotype] or maybe be included in the isoforms file.
 
+### Annex
+
+As part of this project, I developed a similar approach in python to benchmark computation times. I decided to include that script in this repository for people that maybe feel more comfortable using python over Rust. The usage is practically the same:
+
+```
+./bed2gtf.py -bed <BED> -gtf <OUTPUT> -iso <ISOFORMS>
+```
 
 ## References
 
