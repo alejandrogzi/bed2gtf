@@ -214,7 +214,7 @@ fn build_gene_line(gene_name: &str, record: &BedRecord, file: &mut File) {
         record.tx_start() + 1,
         record.tx_end(),
         record.strand(),
-        gene_name,
+        gene_name
     );
     file.write_all(gene_line.as_bytes()).unwrap();
 }
@@ -246,13 +246,13 @@ fn build_gtf_line(record: &BedRecord, gene_name: &str, gene_type: &str, exon_sta
     );
 
     gtf_line += &format!("gene_id \"{}\"; ", gene_name);
-    gtf_line += &format!("transcript_id \"{}\"; ", record.name());
+    gtf_line += &format!("transcript_id \"{}\";", record.name());
     if exon >= 0 {
         if record.strand() == "-" {
-            gtf_line += &format!("exon_number \"{}\"; ", record.exon_count() - exon);
+            gtf_line += &format!("exon_number \"{}\";", record.exon_count() - exon);
             gtf_line += &format!("exon_id \"{}.{}\";", record.name(), record.exon_count() - exon);
         } else {
-            gtf_line += &format!("exon_number \"{}\"; ", exon + 1);
+            gtf_line += &format!("exon_number \"{}\";", exon + 1);
             gtf_line += &format!("exon_id \"{}.{}\";", record.name(), exon + 1);
         }
     }
@@ -321,7 +321,7 @@ fn to_gtf(record: &BedRecord, isoforms: &HashMap<String, String>, file: &mut Fil
     };
 
     if gene_line {
-        build_gene_line(gene_name, record, file)
+        let _ = build_gene_line(gene_name, record, file);
     };
 
     let _ = build_gtf_line(record, gene_name, "transcript", record.tx_start(), record.tx_end(), -1, -1, file);
