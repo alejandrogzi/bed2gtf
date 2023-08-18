@@ -1,6 +1,6 @@
 [package]
 name = "bed2gtf"
-version = "1.2.0"
+version = "1.3.0"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
@@ -13,7 +13,6 @@ categories = ["command-line-utilities", "science"]
 
 [dependencies]
 clap = {version = "4.0"}
-regex = {version = "1.5.4"}
 colored = {version = "1.0.0"}
 
 [profile.release]
