@@ -12,7 +12,7 @@ use std::time::Instant;
 
 fn main() {
     let matches = Command::new("bed2gtf")
-        .version("1.0")
+        .version("1.4.0")
         .author("Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>")
         .about("A fast and memory efficient BED to GTF converter")
         .arg(Arg::new("bed")
