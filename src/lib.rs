@@ -249,11 +249,11 @@ fn build_gtf_line(record: &BedRecord, gene_name: &str, gene_type: &str, exon_sta
     gtf_line += &format!("transcript_id \"{}\";", record.name());
     if exon >= 0 {
         if record.strand() == "-" {
-            gtf_line += &format!("exon_number \"{}\";", record.exon_count() - exon);
-            gtf_line += &format!("exon_id \"{}.{}\";", record.name(), record.exon_count() - exon);
+            gtf_line += &format!(" exon_number \"{}\";", record.exon_count() - exon);
+            gtf_line += &format!(" exon_id \"{}.{}\";", record.name(), record.exon_count() - exon);
         } else {
-            gtf_line += &format!("exon_number \"{}\";", exon + 1);
-            gtf_line += &format!("exon_id \"{}.{}\";", record.name(), exon + 1);
+            gtf_line += &format!(" exon_number \"{}\";", exon + 1);
+            gtf_line += &format!(" exon_id \"{}.{}\";", record.name(), exon + 1);
         }
     }
     gtf_line += "\n";
