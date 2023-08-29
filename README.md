@@ -90,7 +90,7 @@ to include bed2gtf as a library and use it within your project follow these step
     ```
 3. invoke
     ``` rust
-    let gtf = bed2gtf(bed: PathBuf, isoforms: PathBuf, output: PathBuf)
+    let gtf = bed2gtf(bed: &String, isoforms: &String, output: &String)
     ```
 
 ## Build
