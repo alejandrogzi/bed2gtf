@@ -7,11 +7,11 @@ chr27 17266469 17281218 ENST00000541931.8 1000 + 17266469 17281218 0,0,200 2 103
 ```
 into
 ```
-chr27 stdin gene 17266470 17281218 . + . gene_id "ENSG00000151743"; gene_biotype "protein_coding";
+chr27 bed2gtf gene 17266470 17281218 . + . gene_id "ENSG00000151743"; gene_biotype "protein_coding";
 
-chr27 stdin transcript 17266470 17281218 . + . gene_id "ENSG00000151743"; transcript_id "ENST00000541931.8";
+chr27 bed2gtf transcript 17266470 17281218 . + . gene_id "ENSG00000151743"; transcript_id "ENST00000541931.8";
 
-chr27 stdin exon 17266470 17266572 . + . gene_id "ENSG00000151743"; transcript_id "ENST00000541931.8"; exon_number "1"; exon_id "ENST00000541931.8.1";
+chr27 bed2gtf exon 17266470 17266572 . + . gene_id "ENSG00000151743"; transcript_id "ENST00000541931.8"; exon_number "1"; exon_id "ENST00000541931.8.1";
 
 ...
 ```
