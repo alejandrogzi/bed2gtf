@@ -6,7 +6,6 @@ use colored::Colorize;
 
 use std::string::String;
 use std::error::Error;
-use std::time::Instant;
 
 
 
@@ -46,12 +45,11 @@ fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
     let isoforms: &String = matches.get_one("isoforms").unwrap();
     let output: &String = matches.get_one("output").unwrap();
 
-    let now = Instant::now();
-
     let _ = bed2gtf(bed, isoforms, output);
 
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
+    println!("{} {}", 
+    "Success:".bright_green().bold(),
+    "BED file converted successfully!");
 
     Ok(())
 }
