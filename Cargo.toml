@@ -1,6 +1,6 @@
 [package]
 name = "bed2gtf"
-version = "1.4.0"
+version = "1.5.0"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
