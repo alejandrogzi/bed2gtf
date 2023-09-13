@@ -1,4 +1,7 @@
-# bed2gtf
+![Crates.io](https://img.shields.io/crates/v/bed2gtf?color=green)
+![GitHub](https://img.shields.io/github/license/alejandrogzi/bed2gtf?color=blue)
+
+# <span style="color:green">**bed2gtf**</span>
 A fast bed-to-gtf converter written in Rust.
 
 translates
@@ -32,7 +35,7 @@ Options:
     --version: print version
 ```
 
-
+<span style="color:red">IMPORTANT:</span> **All the transcripts in .bed file should appear in the isoforms file.**
 #### crate: [https://crates.io/crates/bed2gtf](https://crates.io/crates/bed2gtf)
 
 <details>
@@ -78,7 +81,7 @@ to install bed2gtf on your system follow this steps:
 
 ## Library
 to include bed2gtf as a library and use it within your project follow these steps:
-1. include `bed2gtf = 1.4.0` under `[dependencies]` in the `Cargo.toml` file
+1. include `bed2gtf = 1.5.0` under `[dependencies]` in the `Cargo.toml` file
 2. the library name is `bed2gtf`, to use it just write:
 
     ``` rust
@@ -156,7 +159,7 @@ bed2gtf is basically the reimplementation of C binaries merged in 1 step. This t
 ### Limitations
 At the time of bed2gtf being publicly available some gaps have not been covered yet. 
 
-1. Sorting. This tool does not implement a sorting step. While it is not mandatory, and probably would not affect post-processing tools, it could increase computation time. A sorting step should consider a) chromosome, b) boundaries (start-end) and c) features (gene > transcript > exon, start_codon, CDS, stop_codon, UTR). 
+1. By the last release of bed2gtf (1.5.0) a novel GTF sorting tool have benn already developed, covering one of the past limitations of bed2gtf, the tool resides here: [gtfsort](https://github.com/alejandrogzi/gtfsort)
 2. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf DOES NOT assume any biotype. In future releases will probably be an option to specify the gene_biotype [-b/--biotype] or maybe be included in the isoforms file.
 
 ### Annex
