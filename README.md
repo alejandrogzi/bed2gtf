@@ -35,7 +35,9 @@ Options:
     --version: print version
 ```
 
-<span style="color:red">IMPORTANT:</span> **All the transcripts in .bed file should appear in the isoforms file.**
+>**Warning** 
+>
+>All the transcripts in .bed file should appear in the isoforms file.
 #### crate: [https://crates.io/crates/bed2gtf](https://crates.io/crates/bed2gtf)
 
 <details>
