@@ -386,9 +386,23 @@ pub fn bed2gtf(input: &String, isoforms: &String, output: &String) -> Result<(),
         let fields: Vec<&str> = line.split('\t').collect();
         let record = BedRecord::new(fields);
 
-        let key = isoforms.get(record.name()).unwrap();
-        if !seen_genes.contains(key) {
-            seen_genes.insert(key.to_string());
+        let key = match isoforms.get(record.name()) {
+            Some(gene) => Ok(gene),
+            None => {
+                log::error!("Isoform {} not found in isoforms file.", record.name().bright_red().bold());
+                Err("Isoform not found in isoforms file")
+            }
+        };
+
+        if key.is_err() {
+            println!("{} {}", 
+            "Fail:".bright_red().bold(),
+            "BED file could not be converted. Please check your isoforms file.");
+            std::process::exit(1);
+        }
+
+        if !seen_genes.contains(key?) {
+            seen_genes.insert(key?.to_string());
             let _ = to_gtf(&record, &isoforms, &mut output, true);
         } else {
             let _ = to_gtf(&record, &isoforms, &mut output, false);
@@ -434,6 +448,14 @@ mod tests {
         Ok("test.isoforms".to_string())
     }
 
+
+    fn teardown(files: Vec<String>) {
+        for file in files {
+            std::fs::remove_file(file).unwrap();
+        }
+    }
+
+
     #[test]
     fn main_test() {
         let input = make_bed_test_file("chr15\t81000922\t81005788\tENST00000267984\t0\t+\t81002271\t81003360\t0\t1\t4866,\t0,").unwrap();
@@ -461,11 +483,5 @@ mod tests {
         assert_eq!(contents, converted_content);
 
         teardown(vec![input, isoforms, output]);
-    }
-
-    fn teardown(files: Vec<String>) {
-        for file in files {
-            std::fs::remove_file(file).unwrap();
-        }
     }
 }
