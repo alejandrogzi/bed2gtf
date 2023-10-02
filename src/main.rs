@@ -11,7 +11,7 @@ use std::error::Error;
 
 fn main() {
     let matches = Command::new("bed2gtf")
-        .version("1.5.0")
+        .version("1.6.0")
         .author("Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>")
         .about("A fast and memory efficient BED to GTF converter")
         .arg(Arg::new("bed")
