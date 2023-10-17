@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct Codon {
     pub start: i32,
@@ -7,7 +6,6 @@ pub struct Codon {
     pub start2: i32,
     pub end2: i32,
 }
-
 
 impl Codon {
     pub fn new() -> Codon {
