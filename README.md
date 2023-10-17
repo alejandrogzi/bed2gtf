@@ -21,6 +21,11 @@ chr27 bed2gtf exon 17266470 17266572 . + . gene_id "ENSG00000151743"; transcript
 
 in a few seconds.
 
+**Important**
+
+Now bed2gtf uses a lexicograph-based algorithm to offer the user not only a .gtf file but a nicely sorted .gtf file. The algorithm was originally implemented in [gtfsort](https://github.com/alejandrogzi/gtfsort), and some parts have been coupled with bed2gtf code. 
+
+
 ## Usage
 ``` rust
 Usage: bed2gtf[EXE] --bed <BED> --isoforms <ISOFORMS> --output <OUTPUT>
@@ -161,8 +166,7 @@ bed2gtf is basically the reimplementation of C binaries merged in 1 step. This t
 ### Limitations
 At the time of bed2gtf being publicly available some gaps have not been covered yet. 
 
-1. By the last release of bed2gtf (1.5.0) a novel GTF sorting tool have benn already developed, covering one of the past limitations of bed2gtf, the tool resides here: [gtfsort](https://github.com/alejandrogzi/gtfsort)
-2. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf DOES NOT assume any biotype. In future releases will probably be an option to specify the gene_biotype [-b/--biotype] or maybe be included in the isoforms file.
+1. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf DOES NOT assume any biotype. In future releases will probably be an option to specify the gene_biotype [-b/--biotype] or maybe be included in the isoforms file.
 
 ### Annex
 
