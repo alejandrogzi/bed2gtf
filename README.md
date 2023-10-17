@@ -21,9 +21,9 @@ chr27 bed2gtf exon 17266470 17266572 . + . gene_id "ENSG00000151743"; transcript
 
 in a few seconds.
 
-[!IMPORTANT]
-
-Now bed2gtf uses a lexicograph-based algorithm to offer the user not only a .gtf file but a nicely sorted .gtf file. The algorithm was originally implemented in [gtfsort](https://github.com/alejandrogzi/gtfsort), and some parts have been coupled with bed2gtf code. 
+>[!IMPORTANT]
+>
+>Now bed2gtf uses a lexicograph-based algorithm to offer the user not only a .gtf file but a nicely sorted .gtf file. The algorithm was originally implemented in [gtfsort](https://github.com/alejandrogzi/gtfsort), and some parts have been coupled with bed2gtf code. 
 
 
 ## Usage
