@@ -88,7 +88,7 @@ to install bed2gtf on your system follow this steps:
 
 ## Library
 to include bed2gtf as a library and use it within your project follow these steps:
-1. include `bed2gtf = 1.6.0` under `[dependencies]` in the `Cargo.toml` file
+1. include `bed2gtf = 1.8.0` under `[dependencies]` in the `Cargo.toml` file
 2. the library name is `bed2gtf`, to use it just write:
 
     ``` rust
@@ -162,11 +162,6 @@ This is where bed2gtf comes in: a fast and memory efficient BED-to-GTF converter
 
 ### How?
 bed2gtf is basically the reimplementation of C binaries merged in 1 step. This tool evaluates the position of k exons in j transcript, calculates start/stop/codon/UTR positions preserving reading frames and adjust the index + 1 (to be compatible with GTF convention). The isoforms file works as the refTable in C binaries to map each transcript to their respective gene; however, bed2gtf takes advantage of this and adds an additional "gene" line (to be compatible with other tools).  
-
-### Limitations
-At the time of bed2gtf being publicly available some gaps have not been covered yet. 
-
-1. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf DOES NOT assume any biotype. In future releases will probably be an option to specify the gene_biotype [-b/--biotype] or maybe be included in the isoforms file.
 
 ### Annex
 
