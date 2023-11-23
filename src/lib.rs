@@ -62,11 +62,14 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use colored::Colorize;
+
+use memchr::memchr;
+
 use peak_alloc::PeakAlloc;
 
 use log::Level;
@@ -74,6 +77,8 @@ use log::Level;
 use chrono::Datelike;
 
 use indoc::indoc;
+
+use flate2::read::{GzDecoder, ZlibDecoder};
 
 use natord::compare;
 
@@ -87,7 +92,7 @@ mod error;
 use error::ParseError;
 
 const SOURCE: &str = "bed2gtf";
-const VERSION: &str = "1.7.0";
+const VERSION: &str = "1.8.0";
 const REPOSITORY: &str = "github.com/alejandrogzi/bed2gtf";
 
 #[global_allocator]
@@ -102,7 +107,12 @@ fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, Box<dyn Error>
 
     for line in reader.lines() {
         let line = line?;
-        let content: Vec<&str> = line.split("\t").collect();
+        // let content: Vec<&str> = line.split("\t").collect();
+        let sp = memchr::memchr(b'\t', line.as_bytes()).unwrap();
+        let content: [&str; 2] = [
+            unsafe { std::str::from_utf8_unchecked(&line.as_bytes()[..sp]) },
+            unsafe { std::str::from_utf8_unchecked(&line.as_bytes()[sp + 1..]) },
+        ];
 
         let gene: &str = content[0];
         let isoform: &str = content[1];
@@ -367,7 +377,10 @@ fn write_features(
     if record.cds_start() < exon_end && exon_start < record.cds_end() {
         let start = max(exon_start, cds_start);
         let end = min(exon_end, cds_end);
-        build_gtf_line(record, gene_name, "CDS", start, end, frame, i as i16, file);
+
+        if start < end {
+            build_gtf_line(record, gene_name, "CDS", start, end, frame, i as i16, file);
+        }
     }
 
     if exon_end > last_utr_start {
@@ -501,12 +514,52 @@ fn to_gtf(
 }
 
 fn bedsort(bed: &String) -> Result<Vec<(String, i32, String)>, ParseError> {
-    let bedfile = File::open(PathBuf::from(bed)).unwrap();
+    let bedfile = File::open(PathBuf::from(bed))?;
     let reader = BufReader::new(bedfile);
     let mut tmp: Vec<(String, i32, String)> = Vec::new();
 
-    for line in reader.lines() {
-        let record = BedRecord::layer(&line?)?;
+    let extension = Path::new(bed.as_str())
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+
+    let lines = match extension {
+        "gz" => {
+            log::info!("bed.gz detected. Decoding...");
+            let mut lines: Vec<String> = gz(reader)
+                .unwrap()
+                .split("\n")
+                .map(|s| s.to_string())
+                .collect();
+            if lines.last().map(|s| s.is_empty()) == Some(true) {
+                lines.pop();
+            }
+            lines
+        }
+        "zlib" => {
+            log::info!("bed.zlib detected. Decoding...");
+            let mut lines: Vec<String> = zlib(reader)
+                .unwrap()
+                .split("\n")
+                .map(|s| s.to_string())
+                .collect();
+            if lines.last().map(|s| s.is_empty()) == Some(true) {
+                lines.pop();
+            }
+            lines
+        }
+        "bed" => {
+            let lines: Vec<String> = reader.lines().map(|s| s.unwrap()).collect();
+            lines
+        }
+        _ => {
+            log::error!("Invalid file extension. Only .bed, .gz, and .zlib are supported.");
+            std::process::exit(1);
+        }
+    };
+
+    for line in lines {
+        let record = BedRecord::layer(&line)?;
         tmp.push(record);
     }
 
@@ -612,6 +665,24 @@ fn comments(file: &mut File) {
     let _ = file.write_all(format!("#date: {}\n", get_date()).as_bytes());
 }
 
+fn gz(reader: BufReader<File>) -> Option<String> {
+    let mut gz = GzDecoder::new(reader);
+
+    // Read the decompressed data into a String
+    let mut contents = String::new();
+    gz.read_to_string(&mut contents).unwrap();
+
+    Some(contents)
+}
+
+fn zlib(reader: BufReader<File>) -> Option<String> {
+    let mut zl = ZlibDecoder::new(reader);
+    let mut contents = String::new();
+    zl.read_to_string(&mut contents).unwrap();
+
+    Some(contents)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,7 +729,7 @@ mod tests {
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
 
-        let converted_content = indoc!("chr15\tbed2gtf\tgene\t81000923\t81005788\t.\t+\t.\tgene_id \"ENSG00000140406\";
+        let converted_content = indoc!("#provider: bed2gtf\n#version: 1.8.0\n#contact: github.com/alejandrogzi/bed2gtf\n#date: 2023-11-23\nchr15\tbed2gtf\tgene\t81000923\t81005788\t.\t+\t.\tgene_id \"ENSG00000140406\";
         chr15\tbed2gtf\ttranscript\t81000923\t81005788\t.\t+\t.\tgene_id \"ENSG00000140406\"; transcript_id \"ENST00000267984\";
         chr15\tbed2gtf\texon\t81000923	81005788\t.\t+\t.\tgene_id \"ENSG00000140406\"; transcript_id \"ENST00000267984\"; exon_number \"1\"; exon_id \"ENST00000267984.1\";
         chr15\tbed2gtf\tfive_prime_utr\t81000923\t81002271\t.\t+\t0\tgene_id \"ENSG00000140406\"; transcript_id \"ENST00000267984\";
