@@ -101,12 +101,19 @@ fn get_isoforms(path: PathBuf) -> Result<HashMap<String, String>, Box<dyn Error>
     let mut isoforms: HashMap<String, String> = HashMap::new();
 
     for line in reader.lines() {
-        let line = line?;
+        let line = line.unwrap();
+        // let bytes = line.as_bytes();
         let content: Vec<&str> = line.split("\t").collect();
-
-        let gene: &str = content[0];
-        let isoform: &str = content[1];
-        isoforms.insert(isoform.to_string(), gene.to_string());
+        // let sp = memchr::memchr(b'\t', &bytes).unwrap();
+        //
+        // let content: [&str; 2] = [
+        //     unsafe { std::str::from_utf8_unchecked(&bytes[0..sp]) },
+        //     unsafe { std::str::from_utf8_unchecked(&bytes[sp + 1..]) },
+        // ];
+        //
+        let gene: String = content[0].to_string();
+        let isoform: String = content[1].to_string();
+        isoforms.insert(isoform, gene);
     }
 
     return Ok(isoforms);
