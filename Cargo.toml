@@ -21,6 +21,7 @@ indoc = "1.0"
 natord = "1.0.9"
 thiserror = "1.0"
 chrono = "0.4.31"
+memchr = "2.6.4"
 
 [profile.release]
 lto = true
