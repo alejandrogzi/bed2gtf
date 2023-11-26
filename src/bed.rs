@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct BedRecord {
     pub chrom: String,
     pub tx_start: u32,
@@ -59,7 +59,11 @@ impl BedRecord {
         }
 
         let exon_starts: Vec<u32> = exon_start.iter().map(|&s| s + tx_start).collect();
-        let exon_ends: Vec<u32> = exon_end.iter().map(|&s| s + tx_start).collect();
+        let exon_ends: Vec<u32> = exon_end
+            .iter()
+            .enumerate()
+            .map(|(i, &s)| s + exon_starts[i])
+            .collect();
 
         Ok(BedRecord {
             chrom: chrom.to_string(),
@@ -76,7 +80,7 @@ impl BedRecord {
     }
 
     pub fn get_frames(&self) -> Vec<i16> {
-        let mut exon_frames: Vec<i16> = vec![-1; self.exon_count as usize];
+        let mut exon_frames: Vec<i16> = vec![0; self.exon_count as usize];
         let mut cds: u32 = 0;
 
         let exon_range = if self.strand == "+" {
@@ -92,8 +96,11 @@ impl BedRecord {
             if cds_exon_start < cds_exon_end {
                 exon_frames[exon] = (cds % 3) as i16;
                 cds += cds_exon_end - cds_exon_start;
+            } else {
+                exon_frames[exon] = -1;
             }
         }
+
         exon_frames
     }
 }
