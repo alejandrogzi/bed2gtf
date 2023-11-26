@@ -1,6 +1,6 @@
 [package]
 name = "bed2gtf"
-version = "1.7.0"
+version = "1.8.0"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
@@ -19,9 +19,8 @@ log = "0.4.14"
 simple_logger = "4.0.0"
 indoc = "1.0"
 natord = "1.0.9"
-thiserror = "1.0"
 chrono = "0.4.31"
-memchr = "2.6.4"
+rayon = "1.8.0"
 
 [profile.release]
 lto = true
