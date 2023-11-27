@@ -25,7 +25,7 @@
 //! following command:
 //!
 //! ```shell
-//! bed2gff input.bed isoforms.txt output.gtf
+//! bed2gtf -b input.bed -i isoforms.txt -o output.gtf
 //! ```
 //!
 //! Where:
