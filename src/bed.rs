@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BedRecord {
     pub chrom: String,
     pub tx_start: u32,
