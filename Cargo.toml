@@ -12,7 +12,7 @@ keywords = ["bed", "gtf", "cli", "bed2gtf"]
 categories = ["command-line-utilities", "science"]
 
 [dependencies]
-clap = {version = "4.0"}
+clap = {version = "4.0", features = ["derive"]}
 colored = {version = "1.0.0"}
 peak_alloc = {version = "0.2.0"}
 log = "0.4.14"
@@ -21,6 +21,7 @@ indoc = "1.0"
 natord = "1.0.9"
 chrono = "0.4.31"
 rayon = "1.8.0"
+num_cpus = "1.16.0"
 
 [profile.release]
 lto = true
@@ -28,7 +29,3 @@ lto = true
 [lib]
 name = "bed2gtf"
 path = "src/lib.rs"
-
-[[bin]]
-name = "bed2gtf"
-path = "src/main.rs"
