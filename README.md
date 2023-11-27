@@ -1,8 +1,8 @@
 ![Crates.io](https://img.shields.io/crates/v/bed2gtf?color=green)
 ![GitHub](https://img.shields.io/github/license/alejandrogzi/bed2gtf?color=blue)
 
-# <span style="color:green">**bed2gtf**</span>
-A fast bed-to-gtf converter written in Rust.
+# bed2gtf
+A high-performance bed-to-gtf converter written in Rust.
 
 translates
 ```
@@ -10,7 +10,7 @@ chr27 17266469 17281218 ENST00000541931.8 1000 + 17266469 17281218 0,0,200 2 103
 ```
 into
 ```
-chr27 bed2gtf gene 17266470 17281218 . + . gene_id "ENSG00000151743"; gene_biotype "protein_coding";
+chr27 bed2gtf gene 17266470 17285418 . + . gene_id "ENSG00000151743";
 
 chr27 bed2gtf transcript 17266470 17281218 . + . gene_id "ENSG00000151743"; transcript_id "ENST00000541931.8";
 
@@ -21,14 +21,25 @@ chr27 bed2gtf exon 17266470 17266572 . + . gene_id "ENSG00000151743"; transcript
 
 in a few seconds.
 
->[!IMPORTANT]
+
+Converts
+- *Homo sapiens* GRCh38 GENCODE 44 (252,835 transcripts) in 3.25 seconds.
+- *Mus musculus* GRCm39 GENCODE 44 (149,547 transcritps) in 1.99 seconds.
+- *Canis lupus familiaris* ROS_Cfam_1.0 Ensembl 110 (55,335 transcripts) in 1.20 seconds. 
+- *Gallus galus* bGalGal1 Ensembl 110 (72,689 transcripts) in 1.36 seconds.
+
+> What's new on v.1.8
 >
->Now bed2gtf uses a lexicograph-based algorithm to offer the user not only a .gtf file but a nicely sorted .gtf file. The algorithm was originally implemented in [gtfsort](https://github.com/alejandrogzi/gtfsort), and some parts have been coupled with bed2gtf code. 
+> - Now bed2gtf works over a parallel algorithm that reduces computation time x3 (compared to the previous implementation)
+> - Fixes a recently noted bug on gene line coordinates (wrong ends)
+> - Python supp implementation has been discontinued
+> - The library feature is temporarily disable and now bed2gtf only works a CLI tool
+> - Disables the lexicograph-based algorithm implemented in the previous version and tries to outputs a somewhat sorted .gtf file (chromosome + start). Note that features will not be in order, if user needs that it is recommended to use [gtfsort](https://github.com/alejandrogzi/gtfsort).
 
 
 ## Usage
 ``` rust
-Usage: bed2gtf[EXE] --bed <BED> --isoforms <ISOFORMS> --output <OUTPUT>
+Usage: bed2gtf[EXE] --bed/-b <BED> --isoforms/-i <ISOFORMS> --output/-o <OUTPUT>
 
 Arguments:
     --bed <BED>: a .bed file
@@ -38,6 +49,7 @@ Arguments:
 Options:
     --help: print help
     --version: print version
+    --threads/-t: number of threads (default: max cpus)
 ```
 
 >**Warning** 
@@ -85,31 +97,12 @@ to install bed2gtf on your system follow this steps:
 4. use `bed2gtf` with the required arguments
 5. enjoy!
 
-
-## Library
-to include bed2gtf as a library and use it within your project follow these steps:
-1. include `bed2gtf = 1.6.0` under `[dependencies]` in the `Cargo.toml` file
-2. the library name is `bed2gtf`, to use it just write:
-
-    ``` rust
-    use bed2gtf::bed2gtf; 
-    ```
-    or 
-    ``` rust
-    use bed2gtf::*;
-    ```
-3. invoke
-    ``` rust
-    let gtf = bed2gtf(bed: &String, isoforms: &String, output: &String)
-    ```
-
 ## Build
 to build bed2gtf from this repo, do:
 
 1. get rust (as described above)
 2. run `git clone https://github.com/alejandrogzi/bed2gtf.git && cd bed2gtf`
-3. run `cargo run --release <BED> <ISOFORMS> <OUTPUT>`(arguments are positional, so you do not need to specify --bed/--isoforms)
-
+3. run `cargo run --release -- -b <BED> -i <ISOFORMS> -o <OUTPUT>`
 
 ## Output
 
@@ -162,19 +155,6 @@ This is where bed2gtf comes in: a fast and memory efficient BED-to-GTF converter
 
 ### How?
 bed2gtf is basically the reimplementation of C binaries merged in 1 step. This tool evaluates the position of k exons in j transcript, calculates start/stop/codon/UTR positions preserving reading frames and adjust the index + 1 (to be compatible with GTF convention). The isoforms file works as the refTable in C binaries to map each transcript to their respective gene; however, bed2gtf takes advantage of this and adds an additional "gene" line (to be compatible with other tools).  
-
-### Limitations
-At the time of bed2gtf being publicly available some gaps have not been covered yet. 
-
-1. Biotype. As you may know (or not), GTF files specify the gene_biotype of each entry (e.g. protein_coding, processed_pseudogene, snoRNA, etc). This is probably the biggest limitation in this release. Currently, bed2gtf DOES NOT assume any biotype. In future releases will probably be an option to specify the gene_biotype [-b/--biotype] or maybe be included in the isoforms file.
-
-### Annex
-
-As part of this project, I developed a similar approach in python to benchmark computation times. I decided to include that script in this repository for people that maybe feel more comfortable using python over Rust. The usage is practically the same:
-
-```
-./bed2gtf.py -bed <BED> -gtf <OUTPUT> -iso <ISOFORMS>
-```
 
 ## References
 
