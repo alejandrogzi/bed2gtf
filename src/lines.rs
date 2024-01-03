@@ -47,18 +47,18 @@ pub fn build_gtf_line(
     let mut attr = format!("gene_id \"{}\"; transcript_id \"{}\";", gene, record.name);
 
     if exon >= 0 {
-        let exon_id = if record.strand == "+" {
+        let (exon_id, nexon) = if record.strand == "+" {
             let exon_id = exon + 1;
-            exon_id as u16
+            (exon_id as u16, exon + 1)
         } else {
             let exon_id = record.exon_count - exon as u16;
-            exon_id
+            (exon_id, exon_id as i16)
         };
 
         write!(
             attr,
             " exon_number \"{}\"; exon_id \"{}.{}\";",
-            exon, record.name, exon_id
+            nexon, record.name, exon_id
         )
         .expect("Failed to write exon information");
     }
