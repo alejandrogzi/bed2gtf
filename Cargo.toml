@@ -1,6 +1,6 @@
 [package]
 name = "bed2gtf"
-version = "1.8.0"
+version = "1.9.0"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
@@ -22,6 +22,7 @@ natord = "1.0.9"
 chrono = "0.4.31"
 rayon = "1.8.0"
 num_cpus = "1.16.0"
+flate2 = "1.0.28"
 
 [profile.release]
 lto = true
