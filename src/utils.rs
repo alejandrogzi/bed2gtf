@@ -10,11 +10,11 @@ use rayon::prelude::*;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, BufWriter, Read, Write};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 const SOURCE: &str = "bed2gtf";
-const VERSION: &str = "1.8.0";
+const VERSION: &str = "1.9.0";
 const REPOSITORY: &str = "github.com/alejandrogzi/bed2gtf";
 
 pub fn bed_reader(file: &PathBuf) -> Vec<BedRecord> {
@@ -184,7 +184,7 @@ pub fn get_date() -> String {
     format!("{}-{}-{}", year, month, day)
 }
 
-pub fn comments(file: &mut BufWriter<File>) {
+pub fn comments(file: &mut Box<dyn Write>) {
     let _ = file.write_all(format!("#provider: {}\n", SOURCE).as_bytes());
     let _ = file.write_all(format!("#version: {}\n", VERSION).as_bytes());
     let _ = file.write_all(format!("#contact: {}\n", REPOSITORY).as_bytes());
