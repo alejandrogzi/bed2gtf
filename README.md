@@ -28,14 +28,10 @@ Converts
 - *Canis lupus familiaris* ROS_Cfam_1.0 Ensembl 110 (55,335 transcripts) in 1.20 seconds. 
 - *Gallus galus* bGalGal1 Ensembl 110 (72,689 transcripts) in 1.36 seconds.
 
-> What's new on v.1.8
+> What's new on v.1.9
 >
-> - Now bed2gtf works over a parallel algorithm that reduces computation time x3 (compared to the previous implementation)
-> - Fixes a recently noted bug on gene line coordinates (wrong ends)
-> - Python supp implementation has been discontinued
-> - The library feature is temporarily disable and now bed2gtf only works a CLI tool
-> - Disables the lexicograph-based algorithm implemented in the previous version and tries to outputs a somewhat sorted .gtf file (chromosome + start). Note that features will not be in order, if user needs that it is recommended to use [gtfsort](https://github.com/alejandrogzi/gtfsort).
-
+> - Fixes a recently noted bug with exon numbers (wrong index start) [issue #8]
+> - Implements the option to output a .gz compressed gtf file (--gz flag)
 
 ## Usage
 ``` rust
