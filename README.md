@@ -36,7 +36,7 @@ Converts
 ## Usage
 ``` rust
 Usage: bed2gtf[EXE] --bed/-b <BED> --isoforms/-i <ISOFORMS> --output/-o <OUTPUT>
-
+ 
 Arguments:
     --bed <BED>: a .bed file
     --isoforms <ISOFORMS>: a tab-delimited file
@@ -45,7 +45,8 @@ Arguments:
 Options:
     --help: print help
     --version: print version
-    --threads/-t: number of threads (default: max cpus)
+    --threads/-t: number of threads (default: max ncpus)
+    --gz: compress output .gtf
 ```
 
 >**Warning** 
