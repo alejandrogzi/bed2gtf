@@ -101,6 +101,14 @@ to build bed2gtf from this repo, do:
 2. run `git clone https://github.com/alejandrogzi/bed2gtf.git && cd bed2gtf`
 3. run `cargo run --release -- -b <BED> -i <ISOFORMS> -o <OUTPUT>`
 
+## Container image
+to build the development container image:
+1. run `git clone https://github.com/alejandrogzi/bed2gtf.git && cd bed2gtf`
+2. initialize docker with `start docker` or `systemctl start docker`
+3. build the image `docker image build --tag bed2gtf .`
+4. run `docker run --rm -v "[dir_where_your_gtf_is]:/dir" bed2gtf -b /dir/<BED> -i /dir/<ISOFORMS> -o /dir/<OUTPUT>`
+
+
 ## Output
 
 bed2gtf will send the output directly to the same .bed file path if you specify so
