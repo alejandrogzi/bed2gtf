@@ -1,5 +1,7 @@
 ![Crates.io](https://img.shields.io/crates/v/bed2gtf?color=green)
 ![GitHub](https://img.shields.io/github/license/alejandrogzi/bed2gtf?color=blue)
+![Crates.io Total Downloads](https://img.shields.io/crates/d/bed2gtf)
+![Conda Platform](https://img.shields.io/conda/pn/bioconda/bed2gtf)
 
 # bed2gtf
 A high-performance bed-to-gtf converter written in Rust.
@@ -108,6 +110,9 @@ to build the development container image:
 3. build the image `docker image build --tag bed2gtf .`
 4. run `docker run --rm -v "[dir_where_your_gtf_is]:/dir" bed2gtf -b /dir/<BED> -i /dir/<ISOFORMS> -o /dir/<OUTPUT>`
 
+## Conda
+to use bed2gtf through Conda just:
+1. `conda install bed2gtf -c bioconda` or `conda create -n bed2gtf -c bioconda gtfsort`
 
 ## Output
 
