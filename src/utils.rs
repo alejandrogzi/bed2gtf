@@ -14,7 +14,7 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 const SOURCE: &str = "bed2gtf";
-const VERSION: &str = "1.9.0";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REPOSITORY: &str = "github.com/alejandrogzi/bed2gtf";
 
 pub fn bed_reader(file: &PathBuf) -> Vec<BedRecord> {
@@ -171,7 +171,7 @@ pub fn msg() {
         Repository: https://github.com/alejandrogzi/bed2gtf
         Feel free to contact the developer if any issue/bug is found."
         ),
-        format!("Version: {}", VERSION).bright_black().bold()
+        format!("Version: {}", VERSION)
     );
 }
 
