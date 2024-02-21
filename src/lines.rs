@@ -78,41 +78,43 @@ pub fn write_features(
     i: usize,
     record: &BedRecord,
     gene: &String,
-    first_utr_end: u32,
+    // first_utr_end: u32,
     cds_start: u32,
     cds_end: u32,
-    last_utr_start: u32,
+    // last_utr_start: u32,
     frame: u32,
     result: &mut Vec<(String, String, u32, u32, String, String, String)>,
 ) {
     let exon_start = record.exon_start[i];
     let exon_end = record.exon_end[i];
 
-    if exon_start < first_utr_end {
-        let end = min(exon_end, first_utr_end);
-        let utr_type = if record.strand == "+" {
-            "five_prime_utr"
-        } else {
-            "three_prime_utr"
-        };
-        build_gtf_line(record, gene, utr_type, exon_start, end, frame, -1, result);
-    }
+    // if exon_start < first_utr_end {
+    //     let end = min(exon_end, first_utr_end);
+    //     let utr_type = if record.strand == "+" {
+    //         "five_prime_utr"
+    //     } else {
+    //         "three_prime_utr"
+    //     };
+    //     build_gtf_line(record, gene, utr_type, exon_start, end, frame, -1, result);
+    // }
 
     if record.cds_start < exon_end && exon_start < record.cds_end {
         let start = max(exon_start, cds_start);
         let end = min(exon_end, cds_end);
-        build_gtf_line(record, gene, "CDS", start, end, frame, i as i16, result);
+        if start < end {
+            build_gtf_line(record, gene, "CDS", start, end, frame, i as i16, result);
+        }
     }
 
-    if exon_end > last_utr_start {
-        let start = max(exon_start, last_utr_start);
-        let utr_type = if record.strand == "+" {
-            "three_prime_utr"
-        } else {
-            "five_prime_utr"
-        };
-        build_gtf_line(record, gene, utr_type, start, exon_end, frame, -1, result);
-    }
+    // if exon_end > last_utr_start {
+    //     let start = max(exon_start, last_utr_start);
+    //     let utr_type = if record.strand == "+" {
+    //         "three_prime_utr"
+    //     } else {
+    //         "five_prime_utr"
+    //     };
+    //     build_gtf_line(record, gene, utr_type, start, exon_end, frame, -1, result);
+    // }
 }
 
 pub fn write_codon(
