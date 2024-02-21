@@ -219,8 +219,8 @@ fn to_gtf(
     let lcodon = last_codon(bedline).unwrap_or_else(|| {
         panic!("No stop codon found for {}.", bedline.name);
     });
-    let first_utr_end = bedline.cds_start;
-    let last_utr_start = bedline.cds_end;
+    // let first_utr_end = bedline.cds_start;
+    // let last_utr_start = bedline.cds_end;
     let frames = bedline.get_frames();
 
     let cds_end: u32 = if bedline.strand == "+" && codon_complete(&lcodon) {
@@ -262,10 +262,10 @@ fn to_gtf(
                 i,
                 bedline,
                 gene,
-                first_utr_end,
+                // first_utr_end,
                 cds_start,
                 cds_end,
-                last_utr_start,
+                // last_utr_start,
                 frames[i] as u32,
                 &mut result,
             );
