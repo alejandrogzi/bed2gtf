@@ -30,10 +30,11 @@ Converts
 - *Canis lupus familiaris* ROS_Cfam_1.0 Ensembl 110 (55,335 transcripts) in 1.20 seconds. 
 - *Gallus galus* bGalGal1 Ensembl 110 (72,689 transcripts) in 1.36 seconds.
 
-> What's new on v.1.9
+> What's new on v.1.9.1
 >
-> - Fixes a recently noted bug with exon numbers (wrong index start) [issue #8]
-> - Implements the option to output a .gz compressed gtf file (--gz flag)
+> - Fixes a recently noted bug with UTR coordinates and first exons in - strand transcripts
+> - Improves the readability of the versioning in CL interface
+> - Disable automatic UTR annotations (no more five/three_prime_utr). Will be optional in the next release.
 
 ## Usage
 ``` rust
