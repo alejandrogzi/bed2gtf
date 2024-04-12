@@ -15,7 +15,7 @@ use std::path::PathBuf;
 
 const SOURCE: &str = "bed2gtf";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const REPOSITORY: &str = "github.com/alejandrogzi/bed2gtf";
+const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 
 pub fn bed_reader(file: &PathBuf) -> Vec<BedRecord> {
     let bed = reader(file).unwrap();
@@ -160,6 +160,20 @@ pub fn combine_maps_par(
         })
         .collect();
     lines
+}
+
+pub fn max_mem_usage_mb() -> f64 {
+    let rusage = unsafe {
+        let mut rusage = std::mem::MaybeUninit::uninit();
+        libc::getrusage(libc::RUSAGE_SELF, rusage.as_mut_ptr());
+        rusage.assume_init()
+    };
+    let maxrss = rusage.ru_maxrss as f64;
+    if cfg!(target_os = "macos") {
+        maxrss / 1024.0 / 1024.0
+    } else {
+        maxrss / 1024.0
+    }
 }
 
 pub fn msg() {
