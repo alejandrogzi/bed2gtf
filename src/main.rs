@@ -51,87 +51,26 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::PathBuf;
 use std::string::String;
 use std::time::Instant;
 
+use clap::Parser;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-
-use peak_alloc::PeakAlloc;
-
-use num_cpus;
-
-use log::Level;
-
+use log::{error, Level};
 use natord::compare;
-
 use rayon::prelude::*;
 
 use bed2gtf::*;
 
-use clap::{self, Parser};
-
 const SOURCE: &str = "bed2gtf";
 
-#[global_allocator]
-static PEAK_ALLOC: PeakAlloc = PeakAlloc;
-
-#[derive(Parser, Debug)]
-#[clap(
-    name = "bed2gtf",
-    version = "1.9.0",
-    author = "Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>",
-    about = "A fast and memory efficient BED to GTF converter"
-)]
-struct Args {
-    #[clap(
-        short = 'b',
-        long,
-        help = "Path to BED file",
-        value_name = "BED",
-        required = true
-    )]
-    bed: PathBuf,
-
-    #[clap(
-        short = 'i',
-        long,
-        help = "Path to isoforms file",
-        value_name = "ISOFORMS",
-        required = true
-    )]
-    isoforms: PathBuf,
-
-    #[clap(
-        short = 'o',
-        long,
-        help = "Path to output file",
-        value_name = "OUTPUT",
-        required = true
-    )]
-    output: PathBuf,
-
-    #[clap(
-        short = 't',
-        long,
-        help = "Number of threads",
-        value_name = "THREADS",
-        default_value_t = num_cpus::get()
-    )]
-    threads: usize,
-
-    #[clap(
-        long = "gz",
-        help = "Compress output file",
-        value_name = "TRUE/FALSE",
-        default_value_t = false
-    )]
-    gz: bool,
-}
-
 fn main() {
-    let args = Args::parse();
+    let args = Cli::parse();
+    args.check().unwrap_or_else(|e| {
+        error!("{}", e);
+        std::process::exit(1);
+    });
 
     msg();
     simple_logger::init_with_level(Level::Info).unwrap();
@@ -144,13 +83,19 @@ fn main() {
     log::info!("Using {} threads", args.threads);
 
     let start = Instant::now();
+    let bmem = max_mem_usage_mb();
 
-    let isf = reader(&args.isoforms).unwrap_or_else(|_| {
-        let message = format!("Error reading isoforms file {}", args.isoforms.display());
-        panic!("{}", message);
-    });
+    let imap = if !args.no_gene {
+        let isf = reader(&args.isoforms.unwrap()).unwrap_or_else(|_| {
+            let message = format!("Error reading isoforms file",);
+            panic!("{}", message);
+        });
+        get_isoforms(&isf)
+    } else {
+        HashMap::new()
+    };
+
     let bed = bed_reader(&args.bed);
-    let imap = get_isoforms(&isf);
     let gene_track = custom_par_parse(&bed).unwrap_or_else(|_| {
         let message = format!("Error parsing BED file {}", args.bed.display());
         panic!("{}", message);
@@ -196,8 +141,7 @@ fn main() {
         .unwrap();
     }
 
-    let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
-
+    let peak_mem = (max_mem_usage_mb() - bmem).max(0.0);
     log::info!("Memory usage: {} MB", peak_mem);
     log::info!("Elapsed: {:.4?} secs", start.elapsed().as_secs_f32())
 }
@@ -207,13 +151,19 @@ fn to_gtf(
     isoforms: &HashMap<String, String>,
 ) -> Result<Vec<(String, String, u32, u32, String, String, String)>, Box<dyn Error>> {
     let mut result: Vec<(String, String, u32, u32, String, String, String)> = Vec::new();
-    let gene = isoforms.get(&bedline.name).unwrap_or_else(|| {
-        let message = format!(
-            "Isoform {} not found. Check your isoforms file",
-            bedline.name
-        );
-        panic!("{}", message);
-    });
+
+    let gene = if !isoforms.is_empty() {
+        match isoforms.get(&bedline.name) {
+            Some(g) => g,
+            None => {
+                error!("Gene {} not found in isoforms file.", bedline.name);
+                std::process::exit(1)
+            }
+        }
+    } else {
+        &bedline.name
+    };
+
     let fcodon = first_codon(bedline)
         .unwrap_or_else(|| panic!("No start codon found for {}.", bedline.name));
     let lcodon = last_codon(bedline).unwrap_or_else(|| {

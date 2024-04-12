@@ -9,3 +9,6 @@ pub use lines::*;
 
 pub mod utils;
 pub use utils::*;
+
+pub mod cli;
+pub use cli::*;
