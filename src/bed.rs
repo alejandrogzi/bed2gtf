@@ -17,42 +17,37 @@ pub struct BedRecord {
 impl BedRecord {
     pub fn parse(line: &str) -> Result<BedRecord, &'static str> {
         let fields: Vec<&str> = line.split('\t').collect();
-
         if fields.len() < 12 {
             return Err("Bed line has less than 12 fields and cannot be parsed into a BedRecord");
         }
 
         let chrom = fields[0].to_string();
-        let tx_start = fields[1]
-            .parse::<u32>()
-            .map_err(|_| "Cannot parse tx_start")?;
-        let tx_end = fields[2]
-            .parse::<u32>()
-            .map_err(|_| "Cannot parse tx_end")?;
         let name = fields[3].to_string();
         let strand = fields[5].to_string();
-        let cds_start = fields[6]
-            .parse::<u32>()
-            .map_err(|_| "Cannot parse cds_start")?;
-        let cds_end = fields[7]
-            .parse::<u32>()
-            .map_err(|_| "Cannot parse cds_end")?;
-        let exon_count = fields[9]
-            .parse::<u16>()
-            .map_err(|_| "Cannot parse exon_count")?;
-        let exon_start = fields[11]
-            .split(',')
-            .filter(|s| !s.is_empty())
-            .map(|x| x.parse::<u32>())
-            .collect::<Result<Vec<u32>, _>>();
-        let exon_end = fields[10]
-            .split(',')
-            .filter(|s| !s.is_empty())
-            .map(|x| x.parse::<u32>())
-            .collect::<Result<Vec<u32>, _>>();
 
-        let exon_start = exon_start.map_err(|_| "Cannot parse exon_start")?;
-        let exon_end = exon_end.map_err(|_| "Cannot parse exon_end")?;
+        let get = |field: &str| field.parse::<u32>().map_err(|_| "Cannot parse field");
+        let tx_start = get(fields[1])?;
+        let tx_end = get(fields[2])?;
+        let cds_start = get(fields[6])?;
+        let cds_end = get(fields[7])?;
+        let exon_count = get(fields[9])? as u16;
+
+        let group = |field: &str| -> Result<Vec<u32>, &'static str> {
+            field
+                .split(',')
+                .filter_map(|num| {
+                    if !num.is_empty() {
+                        Some(num.parse::<u32>().expect("Cannot parse number"))
+                    } else {
+                        None
+                    }
+                })
+                .map(|num| Ok(num))
+                .collect()
+        };
+
+        let exon_start = group(fields[11])?;
+        let exon_end = group(fields[10])?;
 
         if exon_start.len() != exon_end.len() {
             return Err("Exon start and end vectors have different lengths");
