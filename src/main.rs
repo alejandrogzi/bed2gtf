@@ -51,6 +51,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::path::Path;
 use std::string::String;
 use std::time::Instant;
 
@@ -65,7 +66,7 @@ use bed2gtf::*;
 
 const SOURCE: &str = "bed2gtf";
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
     args.check().unwrap_or_else(|e| {
         error!("{}", e);
@@ -95,7 +96,29 @@ fn main() {
         HashMap::new()
     };
 
-    let bed = bed_reader(&args.bed);
+    let bed = match args.bed.extension().and_then(|s| s.to_str()) {
+        Some("gz") => {
+            let bed = match Path::new(args.bed.file_stem().unwrap())
+                .extension()
+                .expect("ERROR: No extension found")
+                .to_str()
+            {
+                Some("bed") => {
+                    let contents = with_gz(&args.bed)?;
+                    parallel_parse(&contents)?
+                }
+                _ => panic!("ERROR: Not a .BED/.BED.GZ. Wrong file format!"),
+            };
+
+            bed
+        }
+        Some("bed") => {
+            let contents = raw(&args.bed)?;
+            parallel_parse(&contents)?
+        }
+        _ => panic!("ERROR: Not a .BED/.BED.GZ. Wrong file format!"),
+    };
+
     let gene_track = custom_par_parse(&bed).unwrap_or_else(|_| {
         let message = format!("Error parsing BED file {}", args.bed.display());
         panic!("{}", message);
@@ -143,7 +166,9 @@ fn main() {
 
     let peak_mem = (max_mem_usage_mb() - bmem).max(0.0);
     log::info!("Memory usage: {} MB", peak_mem);
-    log::info!("Elapsed: {:.4?} secs", start.elapsed().as_secs_f32())
+    log::info!("Elapsed: {:.4?} secs", start.elapsed().as_secs_f32());
+
+    Ok(())
 }
 
 fn to_gtf(

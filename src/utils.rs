@@ -1,27 +1,21 @@
 use crate::bed::BedRecord;
 
 use chrono::Datelike;
-
 use colored::Colorize;
-
+use flate2::read::GzDecoder;
 use indoc::indoc;
-
 use rayon::prelude::*;
 
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::Debug;
 use std::fs::File;
-use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::io::{self, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 
 const SOURCE: &str = "bed2gtf";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
-
-pub fn bed_reader(file: &PathBuf) -> Vec<BedRecord> {
-    let bed = reader(file).unwrap();
-    let records = parallel_parse(&bed).unwrap();
-    records
-}
 
 pub fn get_isoforms(file: &String) -> HashMap<String, String> {
     let pairs = parallel_hash_rev(file);
@@ -43,6 +37,23 @@ pub fn reader(file: &PathBuf) -> io::Result<String> {
     let mut file = File::open(file)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
+pub fn raw<P: AsRef<Path> + Debug>(f: P) -> Result<String, Box<dyn Error>> {
+    let mut file = File::open(f)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
+pub fn with_gz<P: AsRef<Path> + Debug>(f: P) -> Result<String, Box<dyn Error>> {
+    let file = File::open(f)?;
+    let mut decoder = GzDecoder::new(BufReader::new(file));
+
+    let mut contents = String::new();
+    decoder.read_to_string(&mut contents)?;
+
     Ok(contents)
 }
 
@@ -75,11 +86,20 @@ pub fn parallel_hash_rev<'a>(s: &'a str) -> HashMap<String, String> {
         .collect()
 }
 
-pub fn parallel_parse<'a>(s: &'a str) -> Result<Vec<BedRecord>, &'static str> {
-    let records: Result<Vec<BedRecord>, &'static str> =
-        s.par_lines().map(|line| BedRecord::parse(line)).collect();
+pub fn parallel_parse<'a>(s: &'a str) -> Result<Vec<BedRecord>, String> {
+    let records = s
+        .par_lines()
+        // .map(|line| BedRecord::parse(line))
+        .filter_map(|line| match std::str::from_utf8(line.as_bytes()) {
+            Ok(valid_line) => Some(BedRecord::parse(valid_line)),
+            Err(_) => {
+                eprintln!("Skipping invalid UTF-8 line: {:?}", line);
+                None
+            }
+        })
+        .collect::<Result<Vec<BedRecord>, String>>();
 
-    records
+    Ok(records?)
 }
 
 pub fn custom_par_parse(
