@@ -15,10 +15,10 @@ pub struct BedRecord {
 }
 
 impl BedRecord {
-    pub fn parse(line: &str) -> Result<BedRecord, &'static str> {
+    pub fn parse(line: &str) -> Result<BedRecord, String> {
         let fields: Vec<&str> = line.split('\t').collect();
         if fields.len() < 12 {
-            return Err("Bed line has less than 12 fields and cannot be parsed into a BedRecord");
+            return Err(format!("Expected at least 12 fields, found {}", line));
         }
 
         let chrom = fields[0].to_string();
@@ -50,7 +50,7 @@ impl BedRecord {
         let exon_end = group(fields[10])?;
 
         if exon_start.len() != exon_end.len() {
-            return Err("Exon start and end vectors have different lengths");
+            return Err("Exon start and end vectors have different lengths".to_string());
         }
 
         let exon_starts: Vec<u32> = exon_start.iter().map(|&s| s + tx_start).collect();
@@ -138,7 +138,10 @@ mod tests {
 
         assert_eq!(
             record,
-            Err("Bed line has less than 12 fields and cannot be parsed into a BedRecord")
+            Err(
+                "Bed line has less than 12 fields and cannot be parsed into a BedRecord"
+                    .to_string()
+            )
         );
     }
 
@@ -149,7 +152,10 @@ mod tests {
 
         assert_eq!(
             record,
-            Err("Bed line has less than 12 fields and cannot be parsed into a BedRecord")
+            Err(
+                "Bed line has less than 12 fields and cannot be parsed into a BedRecord"
+                    .to_string()
+            )
         );
     }
 }
