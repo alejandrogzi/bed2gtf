@@ -6,7 +6,7 @@ use thiserror::Error;
 #[derive(Parser, Debug)]
 #[clap(
     name = "bed2gtf",
-    version = "1.9.1",
+    version = env!("CARGO_PKG_VERSION"),
     author = "Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>",
     about = "A fast and memory efficient BED to GTF converter"
 )]
@@ -61,13 +61,14 @@ pub struct Cli {
         num_args(0..=1),
         require_equals(true),
         action = ArgAction::Set,
+        conflicts_with = "isoforms",
     )]
     pub no_gene: bool,
 
     #[clap(
         short = 'i',
         long,
-        help = "Path to isoforms file",
+        help = "Path to isoforms file [gene -> transcript1, transcript2, ...]",
         value_name = "ISOFORMS",
         required_unless_present = "no_gene",
         default_value = None,
@@ -92,7 +93,7 @@ impl Cli {
         validate(&self.bed)?;
 
         match self.bed.extension() {
-            Some(ext) if ext == "bed" => (),
+            Some(ext) if ext == "bed" || ext == "gz" => (),
             _ => {
                 return Err(CliError::InvalidInput(format!(
                     "file {:?} is not a BED file",
