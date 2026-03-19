@@ -23,7 +23,7 @@ jobs:
         run: cargo test --manifest-path Cargo.toml --locked --tests
 
       - name: Cargo fmt
-        run: cargo fmt --manifest-path Cargo.toml --locked -- --check
+        run: cargo fmt --manifest-path Cargo.toml -- --check
 
       - name: Cargo clippy
-        run: cargo clippy --manifest-path Cargo.toml --locked -- -D warnings
+        run: cargo clippy --manifest-path Cargo.toml -- -D warnings
