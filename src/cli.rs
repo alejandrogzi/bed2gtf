@@ -1,140 +1,176 @@
-use clap::{self, ArgAction, Parser};
-use num_cpus;
-use std::path::PathBuf;
-use thiserror::Error;
+// Copyright (c) 2025 Alejandro Gonzalez-Irribarren <alejandrxgzi@gmail.com>
+// Distributed under the terms of the Apache License, Version 2.0.
 
-#[derive(Parser, Debug)]
-#[clap(
+use clap::{ArgAction, Parser, ValueEnum};
+use log::Level;
+use std::fmt;
+use std::path::PathBuf;
+use std::str::FromStr;
+
+#[derive(Parser, Debug, Clone)]
+#[command(
     name = "bed2gtf",
     version = env!("CARGO_PKG_VERSION"),
-    author = "Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>",
-    about = "A fast and memory efficient BED to GTF converter"
+    author = "Alejandro Gonzales-Irribarren <alejandrxgzi@gmail.com>",
+    about = "A fast and memory efficient BED to GTF/GFF converter"
 )]
-pub struct Cli {
-    #[clap(
-        short = 'b',
-        long,
-        help = "Path to BED file",
-        value_name = "BED",
-        required = true
-    )]
-    pub bed: PathBuf,
+pub struct Args {
+    /// Input BED path. Reads from stdin when omitted.
+    #[arg(short = 'i', long = "input", value_name = "BED")]
+    pub input: Option<PathBuf>,
 
-    #[clap(
-        short = 'o',
-        long,
-        help = "Path to output file",
-        value_name = "OUTPUT",
-        required = true
-    )]
-    pub output: PathBuf,
+    /// Output path. Writes to stdout when omitted.
+    #[arg(short = 'o', long = "output", value_name = "OUTPUT")]
+    pub output: Option<PathBuf>,
 
-    #[clap(
+    /// Output format when writing to stdout.
+    #[arg(long = "to", value_name = "FORMAT")]
+    pub to: Option<OutputFormat>,
+
+    /// Optional transcript-to-gene mapping file.
+    #[arg(short = 'I', long = "isoforms", value_name = "TSV")]
+    pub isoforms: Option<PathBuf>,
+
+    /// BED layout to parse.
+    #[arg(
         short = 't',
-        long,
-        help = "Number of threads",
+        long = "type",
+        value_name = "BED_TYPE",
+        default_value_t = BedType::Bed12
+    )]
+    pub bed_type: BedType,
+
+    /// Number of worker threads.
+    #[arg(
+        short = 'T',
+        long = "threads",
         value_name = "THREADS",
         default_value_t = num_cpus::get()
     )]
     pub threads: usize,
 
-    #[clap(
-        short,
-        long = "gz",
-        help = "Compress output file",
-        value_name = "FLAG",
-        default_missing_value("true"),
-        default_value("false"),
-        num_args(0..=1),
-        require_equals(true),
-        action = ArgAction::Set,
+    /// Chunk size for parallel processing.
+    #[arg(
+        short = 'c',
+        long = "chunks",
+        value_name = "CHUNKS",
+        default_value_t = 15_000
     )]
+    pub chunks: usize,
+
+    /// Gzip stdout or require a gzip output path.
+    #[arg(short = 'g', long = "gz", action = ArgAction::SetTrue)]
     pub gz: bool,
 
+    /// Logging verbosity.
     #[arg(
-        short,
-        long = "no-gene",
-        help = "Flag to disable gene_id feature",
-        value_name = "FLAG",
-        default_missing_value("true"),
-        default_value("false"),
-        num_args(0..=1),
-        require_equals(true),
-        action = ArgAction::Set,
-        conflicts_with = "isoforms",
+        short = 'L',
+        long = "level",
+        value_name = "LEVEL",
+        default_value_t = Level::Info
     )]
-    pub no_gene: bool,
-
-    #[clap(
-        short = 'i',
-        long,
-        help = "Path to isoforms file [gene -> transcript1, transcript2, ...]",
-        value_name = "ISOFORMS",
-        required_unless_present = "no_gene",
-        default_value = None,
-    )]
-    pub isoforms: Option<PathBuf>,
+    pub level: Level,
 }
 
-#[derive(Debug, Error)]
-pub enum CliError {
-    #[error("Invalid input: {0}")]
-    InvalidInput(String),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+/// Output layouts supported by the converter.
+///
+/// ```rust,ignore
+/// use bed2gtf::OutputFormat;
+/// use std::str::FromStr;
+///
+/// assert_eq!(OutputFormat::from_str("gff").unwrap(), OutputFormat::Gff);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OutputFormat {
+    Gtf,
+    Gff,
 }
 
-impl Cli {
-    pub fn check(&self) -> Result<(), CliError> {
-        self.validate_args()
-    }
-
-    fn validate_args(&self) -> Result<(), CliError> {
-        validate(&self.bed)?;
-
-        match self.bed.extension() {
-            Some(ext) if ext == "bed" || ext == "gz" => (),
-            _ => {
-                return Err(CliError::InvalidInput(format!(
-                    "file {:?} is not a BED file",
-                    self.bed
-                )))
-            }
+impl fmt::Display for OutputFormat {
+    /// Returns the CLI name of the output format.
+    ///
+    /// ```rust,ignore
+    /// use bed2gtf::OutputFormat;
+    /// assert_eq!(OutputFormat::Gtf.to_string(), "gtf");
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OutputFormat::Gtf => f.write_str("gtf"),
+            OutputFormat::Gff => f.write_str("gff"),
         }
-
-        if !self.no_gene {
-            let isoforms = self.isoforms.as_ref().unwrap();
-            validate(isoforms)?;
-        }
-
-        match self.output.extension() {
-            Some(ext) if ext == "gtf" => (),
-            _ => {
-                return Err(CliError::InvalidInput(format!(
-                    "file {:?} is not a GTF file",
-                    self.bed
-                )))
-            }
-        }
-
-        Ok(())
     }
 }
 
-fn validate(arg: &PathBuf) -> Result<(), CliError> {
-    if !arg.exists() {
-        return Err(CliError::InvalidInput(format!("{:?} does not exist", arg)));
-    }
+/// BED layouts supported by the reader.
+///
+/// ```rust,ignore
+/// use bed2gtf::BedType;
+/// assert_eq!(BedType::default(), BedType::Bed12);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BedType {
+    Bed3,
+    Bed4,
+    Bed5,
+    Bed6,
+    Bed8,
+    Bed9,
+    Bed12,
+}
 
-    if !arg.is_file() {
-        return Err(CliError::InvalidInput(format!("{:?} is not a file", arg)));
+impl Default for BedType {
+    /// Returns the default BED layout.
+    ///
+    /// ```rust,ignore
+    /// use bed2gtf::BedType;
+    /// assert_eq!(BedType::default(), BedType::Bed12);
+    /// ```
+    fn default() -> Self {
+        BedType::Bed12
     }
+}
 
-    match std::fs::metadata(arg) {
-        Ok(metadata) if metadata.len() == 0 => {
-            Err(CliError::InvalidInput(format!("file {:?} is empty", arg)))
+impl FromStr for BedType {
+    type Err = String;
+
+    /// Parses a BED layout from its numeric representation.
+    ///
+    /// ```rust,ignore
+    /// use bed2gtf::BedType;
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(BedType::from_str("8").unwrap(), BedType::Bed8);
+    /// ```
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "3" => Ok(BedType::Bed3),
+            "4" => Ok(BedType::Bed4),
+            "5" => Ok(BedType::Bed5),
+            "6" => Ok(BedType::Bed6),
+            "8" => Ok(BedType::Bed8),
+            "9" => Ok(BedType::Bed9),
+            "12" => Ok(BedType::Bed12),
+            _ => Err(format!("invalid BED type: {s}")),
         }
-        Ok(_) => Ok(()),
-        Err(e) => Err(CliError::IoError(e)),
+    }
+}
+
+impl fmt::Display for BedType {
+    /// Formats the BED layout as its numeric form.
+    ///
+    /// ```rust,ignore
+    /// use bed2gtf::BedType;
+    /// assert_eq!(BedType::Bed6.to_string(), "6");
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BedType::Bed3 => f.write_str("3"),
+            BedType::Bed4 => f.write_str("4"),
+            BedType::Bed5 => f.write_str("5"),
+            BedType::Bed6 => f.write_str("6"),
+            BedType::Bed8 => f.write_str("8"),
+            BedType::Bed9 => f.write_str("9"),
+            BedType::Bed12 => f.write_str("12"),
+        }
     }
 }
