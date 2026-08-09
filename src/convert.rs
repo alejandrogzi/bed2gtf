@@ -36,7 +36,7 @@ pub(crate) struct RunStats {
 pub(crate) fn run(config: &Config) -> Result<RunStats> {
     let start = Instant::now();
     let start_mem = max_mem_usage_mb();
-    let isoforms = load_isoforms(config.isoforms.as_deref())?;
+    let isoforms = load_isoforms(config.isoforms.as_deref(), config.isoform_format)?;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(config.threads)
         .build()?;
@@ -244,6 +244,12 @@ fn resolve_gene_key(
             if let Some(gene) = mapping.get(name_text) {
                 return Some(gene.as_bytes().to_vec());
             }
+            // ponytail: warns per record; dedupe via HashSet if log flood becomes an
+            // issue for large partial maps.
+            log::warn!(
+                "transcript {} not found in isoforms file; gene_id falls back to transcript_id",
+                name_text
+            );
         }
     }
     Some(name.clone())
@@ -398,7 +404,7 @@ fn write_output<W: Write>(writer: &mut W, chunks: Vec<(usize, Vec<u8>)>) -> Resu
 ///
 /// ```rust,ignore
 /// # use bed2gtf::config::{Config, InputSource, OutputTarget};
-/// # let config = Config { input: InputSource::Stdin, output: OutputTarget::Stdout, output_format: bed2gtf::OutputFormat::Gtf, bed_type: bed2gtf::BedType::Bed12, threads: 1, chunks: 1, isoforms: None, force_gzip: false };
+/// # let config = Config { input: InputSource::Stdin, output: OutputTarget::Stdout, output_format: bed2gtf::OutputFormat::Gtf, bed_type: bed2gtf::BedType::Bed12, threads: 1, chunks: 1, isoforms: None, isoform_format: bed2gtf::cli::IsoformFormat::Gt, force_gzip: false };
 /// # use bed2gtf::detect::Compression;
 /// bed2gtf::convert::validate_runtime_output(&config, Compression::None)?;
 /// # Ok::<(), bed2gtf::Bed2GtfError>(())
@@ -434,7 +440,7 @@ mod tests {
 chr1\t1100\t2200\ttxB\t0\t+\t1100\t2200\t0,0,0\t1\t1100,\t0,\n\
 chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
 
-    const ISOFORMS: &str = "txA\tGENE1\ntxB\tGENE1\ntxC\tGENE1\n";
+    const ISOFORMS: &str = "GENE1\ttxA\nGENE1\ttxB\nGENE1\ttxC\n";
 
     fn temp_path(tag: &str, ext: &str) -> PathBuf {
         let stamp = SystemTime::now()
@@ -477,9 +483,9 @@ chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
         let out = temp_path("gtf", "gtf");
         let text = convert(&[
             "bed2gtf",
-            "-i",
+            "-b",
             bed.to_str().unwrap(),
-            "-I",
+            "-i",
             iso.to_str().unwrap(),
             "-o",
             out.to_str().unwrap(),
@@ -504,9 +510,9 @@ chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
         let out = temp_path("gff", "gff");
         let text = convert(&[
             "bed2gtf",
-            "-i",
+            "-b",
             bed.to_str().unwrap(),
-            "-I",
+            "-i",
             iso.to_str().unwrap(),
             "-o",
             out.to_str().unwrap(),
@@ -529,9 +535,9 @@ chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
         // gene line proves the leader is decided globally, not per window.
         let text = convert(&[
             "bed2gtf",
-            "-i",
+            "-b",
             bed.to_str().unwrap(),
-            "-I",
+            "-i",
             iso.to_str().unwrap(),
             "-c",
             "1",
@@ -555,7 +561,7 @@ chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
         let out = temp_path("noiso", "gtf");
         let text = convert(&[
             "bed2gtf",
-            "-i",
+            "-b",
             bed.to_str().unwrap(),
             "-o",
             out.to_str().unwrap(),
@@ -576,7 +582,7 @@ chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
         let out = temp_path("noiso-gff", "gff");
         let text = convert(&[
             "bed2gtf",
-            "-i",
+            "-b",
             bed.to_str().unwrap(),
             "-o",
             out.to_str().unwrap(),
@@ -606,5 +612,31 @@ chr1\t900\t1800\ttxC\t0\t+\t900\t1800\t0,0,0\t1\t900,\t0,\n";
             .iter()
             .filter_map(|line| attr(line, "ID="))
             .all(|gene_id| gene_id.starts_with("gene-")));
+    }
+
+    /// The `--isoform-format t,g` port accepts transcript-first files
+    /// (the v2.1.0 layout) while the default stays gene-first.
+    #[test]
+    fn isoform_format_tg_accepts_transcript_first_file() {
+        let bed = temp_path("tg", "bed");
+        let iso = temp_path("tg", "tsv");
+        fs::write(&bed, BED).unwrap();
+        fs::write(&iso, "txA\tGENE1\ntxB\tGENE1\ntxC\tGENE1\n").unwrap();
+        let out = temp_path("tg", "gtf");
+        let text = convert(&[
+            "bed2gtf",
+            "-b",
+            bed.to_str().unwrap(),
+            "-i",
+            iso.to_str().unwrap(),
+            "--isoform-format",
+            "t,g",
+            "-o",
+            out.to_str().unwrap(),
+        ]);
+        let _ = fs::remove_file(&bed);
+        let _ = fs::remove_file(&iso);
+
+        assert_eq!(gene_lines(&text).len(), 1, "expected one gene line");
     }
 }

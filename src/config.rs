@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Alejandro Gonzalez-Irribarren <alejandrxgzi@gmail.com>
 // Distributed under the terms of the Apache License, Version 2.0.
 
-use crate::cli::{Args, BedType, OutputFormat};
+use crate::cli::{Args, BedType, IsoformFormat, OutputFormat};
 use crate::detect::{
     detect_input_path, detect_output_path, Compression, InputPathKind, OutputPathKind,
 };
@@ -18,6 +18,7 @@ pub(crate) struct Config {
     pub(crate) threads: usize,
     pub(crate) chunks: usize,
     pub(crate) isoforms: Option<PathBuf>,
+    pub(crate) isoform_format: IsoformFormat,
     pub(crate) force_gzip: bool,
 }
 
@@ -100,6 +101,7 @@ impl Config {
             threads: args.threads,
             chunks: args.chunks,
             isoforms: args.isoforms,
+            isoform_format: args.isoform_format,
             force_gzip: args.gz,
         })
     }

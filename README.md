@@ -24,7 +24,6 @@
     </a>
   </p>
 
-
   <p align="center">
 
   </p>
@@ -41,7 +40,6 @@
     </samp>
   </p>
 
-
 ## Features
 
 - Converts BED to GTF or GFF/GFF3
@@ -53,17 +51,17 @@
 - Writes to stdout when `--output` is omitted
 - Accepts an optional transcript-to-gene mapping file through `--isoforms`
 
-
 ## Usage
 
 ```text
 bed2gtf [OPTIONS]
 
 Options:
-  -i, --input <BED>         Input BED path; reads stdin when omitted
+  -b, --input <BED>         Input BED path; reads stdin when omitted
   -o, --output <OUTPUT>     Output path; writes stdout when omitted
       --to <gtf|gff>        Output format for stdout; required when --output is absent
-  -I, --isoforms <TSV>      Optional transcript-to-gene map
+  -i, --isoforms <TSV>      Optional transcript-to-gene map
+      --isoform-format <F>  Isoforms columns: g,t (gene first) or t,g [default: g,t]
   -t, --type <BED_TYPE>     BED layout: 3, 4, 5, 6, 8, 9, 12 [default: 12]
   -T, --threads <N>         Worker threads [default: logical CPU count]
   -c, --chunks <N>          Parallel chunk size [default: 15000]
@@ -81,25 +79,31 @@ Options:
 cargo install bed2gtf
 ```
 
-### Build 
+### Build
 
 1. get rust
 2. run `git clone https://github.com/alejandrogzi/bed2gtf.git && cd bed2gtf`
-3. run `cargo run --release -- -i <BED> -o <OUTPUT>`
+3. run `cargo run --release -- -b <BED> -o <OUTPUT>`
 
 ### Container image
+
 to build the development container image:
+
 1. run `git clone https://github.com/alejandrogzi/bed2gtf.git && cd bed2gtf`
 2. initialize docker with `start docker` or `systemctl start docker`
 3. build the image `docker image build --tag bed2gtf .`
-4. run `docker run --rm -v "[dir_where_your_files_are]:/dir" bed2gtf -i /dir/<BED> -o /dir/<OUTPUT>`
+4. run `docker run --rm -v "[dir_where_your_files_are]:/dir" bed2gtf -b /dir/<BED> -o /dir/<OUTPUT>`
 
 ### Conda
+
 to use bed2gtf through Conda just:
+
 1. `conda install bed2gtf -c bioconda` or `conda create -n bed2gtf -c bioconda bed2gtf`
 
 ### Nextflow
+
 to use bed2gtf through Nextflow as a module just:
+
 1. borrow `main.nf` from [here](https://github.com/alejandrogzi/bed2gtf/blob/master/assets/nf/bed2gtf/main.nf)
 
 ## Behavior
@@ -114,15 +118,21 @@ to use bed2gtf through Nextflow as a module just:
 
 `--isoforms` is optional.
 
-When provided, it must point to a two-column tab-separated file:
+When provided, it must point to a two-column tab-separated file.
+
+By default the columns are gene first, transcript second (the layout
+written by [TOGA2](https://github.com/hillerlab/TOGA2)):
 
 ```text
-ENST00000335137	ENSG00000186092
-ENST00000423372	ENSG00000237613
+ENSG00000186092 ENST00000335137
+ENSG00000237613 ENST00000423372
 ```
 
-- Column 1: transcript ID
-- Column 2: gene ID
+- Column 1: gene ID
+- Column 2: transcript ID
+
+Pass `--isoform-format t,g` for transcript-first files (column 1 = transcript,
+column 2 = gene). The `-I` short flag is kept as an alias for `-i`.
 
 Blank lines and `#` comments are ignored.
 
@@ -152,11 +162,11 @@ Read from stdin and write GFF to stdout:
 cat transcripts.bed | bed2gtf --to gff
 ```
 
-Use a transcript-to-gene mapping file:
+Use a transcript-to-gene mapping file (default isoforms layout is
+gene-first; see the Isoforms Mapping section for `--isoform-format`):
 
 ```bash
-bed2gtf \
-  --input transcripts.bed \
+bed2gtf -b transcripts.bed \
   --output transcripts.gtf \
   --isoforms isoforms.tsv
 ```
