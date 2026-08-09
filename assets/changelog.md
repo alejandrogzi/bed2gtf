@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.2.0 - 2026-08-09
+
+### Fixed
+
+- Restored v1.x CLI compatibility: `-b` is again the input BED path and `-i`
+  the isoforms file (v2.1.0 used `-i`/`-I`), so callers such as TOGA2 that
+  invoke `bed2gtf -b <BED> -i <ISOFORMS> -o <GTF>` work again unchanged.
+- Restored the v1.x isoforms column order: the default layout is gene first
+  (`gene<TAB>transcript`), matching the files written by TOGA2. v2.1.0 parsed
+  transcript-first, so no keys matched and `gene_id` silently fell back to
+  `transcript_id` (or aborted with `DuplicateIsoformMapping` for multi-isoform
+  genes).
+- Unmapped transcripts now emit a warning instead of silently reusing their
+  transcript id as the gene id.
+
+### Added
+
+- `--isoform-format g,t|t,g` selects the isoforms column order explicitly;
+  it defaults to `g,t` (gene first). The `-I` short flag remains a visible
+  alias of `-i`.
+
+### Changed
+
+- Bumped the crate version from `2.1.0` to `2.2.0`.
+
 ## v2.1.0 - 2026-06-24
 
 ### Fixed
