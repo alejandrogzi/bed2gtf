@@ -59,7 +59,7 @@ dependencies = [
 
 [[package]]
 name = "bed2gtf"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "clap",
  "flate2",
@@ -194,9 +194,9 @@ dependencies = [
 
 [[package]]
 name = "genepred"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cd51e7477eafba093bf369f6e2fdfd31c964967287988eae4d60364c15d0f53"
+checksum = "2d325e72bfd34cbe1676162128478838842807898aafb794fd3c822697d887f4"
 dependencies = [
  "flate2",
  "memchr",

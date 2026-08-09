@@ -16,7 +16,7 @@ use std::str::FromStr;
 )]
 pub struct Args {
     /// Input BED path. Reads from stdin when omitted.
-    #[arg(short = 'i', long = "input", value_name = "BED")]
+    #[arg(short = 'b', long = "input", value_name = "BED")]
     pub input: Option<PathBuf>,
 
     /// Output path. Writes to stdout when omitted.
@@ -28,8 +28,21 @@ pub struct Args {
     pub to: Option<OutputFormat>,
 
     /// Optional transcript-to-gene mapping file.
-    #[arg(short = 'I', long = "isoforms", value_name = "TSV")]
+    #[arg(
+        short = 'i',
+        visible_short_alias = 'I',
+        long = "isoforms",
+        value_name = "TSV"
+    )]
     pub isoforms: Option<PathBuf>,
+
+    /// Column order of the isoforms file: `g,t` (gene first) or `t,g` (transcript first).
+    #[arg(
+        long = "isoform-format",
+        value_name = "FORMAT",
+        default_value_t = IsoformFormat::Gt
+    )]
+    pub isoform_format: IsoformFormat,
 
     /// BED layout to parse.
     #[arg(
@@ -70,6 +83,34 @@ pub struct Args {
         default_value_t = Level::Info
     )]
     pub level: Level,
+}
+
+/// Column order of the two-column isoforms file.
+///
+/// ```rust,ignore
+/// use bed2gtf::cli::IsoformFormat;
+/// use std::str::FromStr;
+///
+/// assert_eq!(IsoformFormat::from_str("t,g").unwrap(), IsoformFormat::Tg);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum IsoformFormat {
+    /// Gene first (`gene<TAB>transcript`), the format written by TOGA2.
+    #[value(name = "g,t")]
+    Gt,
+    /// Transcript first (`transcript<TAB>gene`).
+    #[value(name = "t,g")]
+    Tg,
+}
+
+impl fmt::Display for IsoformFormat {
+    /// Returns the CLI name of the isoform column order.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IsoformFormat::Gt => f.write_str("g,t"),
+            IsoformFormat::Tg => f.write_str("t,g"),
+        }
+    }
 }
 
 /// Output layouts supported by the converter.
